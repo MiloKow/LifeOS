@@ -306,7 +306,7 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
                             dragOverFolderId === "root" && "bg-muted/80 ring-2 ring-primary/20"
                         )}
                         onClick={() => setSelectedFolderId(null)}
-                        onDragOver={(e) => handleDragOver(e, null)}
+                        onDragOver={(e) => handleDragOver(e, "root")}
                         onDrop={(e) => handleDrop(e, null)}
                         // Use a specific ID like "root" for visual state logic, but pass null to handler
                         onDragEnter={(e) => { e.preventDefault(); setDragOverFolderId("root"); }}
