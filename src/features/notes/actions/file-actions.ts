@@ -55,12 +55,21 @@ export async function deleteNoteFile(fileId: string) {
             return { error: "File not found" };
         }
 
-        // Delete the file from disk
+        // Delete the file from storage
         try {
-            const filepath = path.join(process.cwd(), "public", file.filepath);
-            await unlink(filepath);
+            if (file.filepath.includes("blob.vercel-storage.com")) {
+                // Vercel Blob - use del() from @vercel/blob
+                const { del } = await import("@vercel/blob");
+                await del(file.filepath);
+            } else if (file.filepath.startsWith("/api/files/")) {
+                // Local filesystem - extract path and delete
+                const relativePath = file.filepath.replace("/api/files/", "");
+                const filepath = path.join(process.cwd(), "public", "uploads", relativePath);
+                await unlink(filepath);
+            }
         } catch (fileError) {
-            console.error("Failed to delete file from disk:", fileError);
+            console.error("Failed to delete file from storage:", fileError);
+            // Continue with database deletion even if file deletion fails
         }
 
         // Delete from database

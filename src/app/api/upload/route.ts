@@ -15,6 +15,9 @@ const ALLOWED_TYPES = [
 // Max file size: 10MB
 const MAX_SIZE = 10 * 1024 * 1024;
 
+// Check if we should use Vercel Blob (production on Vercel)
+const USE_VERCEL_BLOB = process.env.BLOB_READ_WRITE_TOKEN !== undefined;
+
 export async function POST(request: NextRequest) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -55,21 +58,31 @@ export async function POST(request: NextRequest) {
         const ext = file.name.split(".").pop() || "bin";
         const safeFilename = `${timestamp}-${Math.random().toString(36).substring(2, 8)}.${ext}`;
 
-        // Create directory for note attachments
-        const uploadDir = path.join(process.cwd(), "public", "uploads", "notes", noteId);
-        await mkdir(uploadDir, { recursive: true });
+        let fileUrl: string;
 
-        // Write file to disk
-        const filepath = path.join(uploadDir, safeFilename);
-        const bytes = await file.arrayBuffer();
-        await writeFile(filepath, Buffer.from(bytes));
+        if (USE_VERCEL_BLOB) {
+            // Use Vercel Blob in production
+            const { put } = await import("@vercel/blob");
+            const blob = await put(`notes/${noteId}/${safeFilename}`, file, {
+                access: "public",
+            });
+            fileUrl = blob.url;
+        } else {
+            // Use local filesystem in development/Docker
+            const uploadDir = path.join(process.cwd(), "public", "uploads", "notes", noteId);
+            await mkdir(uploadDir, { recursive: true });
 
-        // Return relative path for database storage (using API route for serving)
-        const relativePath = `/api/files/notes/${noteId}/${safeFilename}`;
+            const filepath = path.join(uploadDir, safeFilename);
+            const bytes = await file.arrayBuffer();
+            await writeFile(filepath, Buffer.from(bytes));
+
+            // Use API route for serving local files
+            fileUrl = `/api/files/notes/${noteId}/${safeFilename}`;
+        }
 
         return NextResponse.json({
             success: true,
-            filepath: relativePath,
+            filepath: fileUrl,
             filename: file.name,
             mimeType: file.type,
             size: file.size,
