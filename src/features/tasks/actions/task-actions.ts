@@ -151,13 +151,14 @@ export async function getTasks(options?: {
     }
 
     if (options?.today) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        const tomorrow = new Date(today);
-        tomorrow.setDate(tomorrow.getDate() + 1);
+        const tomorrow = new Date();
+        tomorrow.setHours(23, 59, 59, 999);
+        // Include tasks due today or overdue (past due date), exclude completed tasks
         where.dueDate = {
-            gte: today,
-            lt: tomorrow,
+            lte: tomorrow,
+        };
+        where.status = {
+            not: "DONE",
         };
     }
 
@@ -193,3 +194,42 @@ export async function getTasks(options?: {
         return [];
     }
 }
+
+export async function getTasksForCalendar(options: {
+    startDate: Date;
+    endDate: Date;
+}) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return [];
+    }
+
+    try {
+        const tasks = await db.task.findMany({
+            where: {
+                userId: session.user.id,
+                deletedAt: null,
+                dueDate: {
+                    gte: options.startDate,
+                    lte: options.endDate,
+                },
+            },
+            include: {
+                project: {
+                    select: {
+                        id: true,
+                        name: true,
+                        color: true,
+                    },
+                },
+            },
+            orderBy: { dueDate: "asc" },
+        });
+
+        return tasks;
+    } catch (error) {
+        console.error("Failed to get tasks for calendar:", error);
+        return [];
+    }
+}
+

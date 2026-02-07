@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getEvents } from "@/features/calendar/actions/event-actions";
+import { getTasksForCalendar } from "@/features/tasks/actions/task-actions";
 import { CalendarPageClient } from "./calendar-page-client";
 import { startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 
@@ -11,12 +12,15 @@ export default async function CalendarPage() {
         redirect("/login");
     }
 
-    // Get events for current month plus buffer
+    // Get events and tasks for current month plus buffer
     const now = new Date();
     const startDate = startOfMonth(subMonths(now, 1));
     const endDate = endOfMonth(addMonths(now, 2));
 
-    const events = await getEvents({ startDate, endDate });
+    const [events, tasks] = await Promise.all([
+        getEvents({ startDate, endDate }),
+        getTasksForCalendar({ startDate, endDate }),
+    ]);
 
     return (
         <div className="space-y-6">
@@ -27,7 +31,8 @@ export default async function CalendarPage() {
                 </p>
             </div>
 
-            <CalendarPageClient events={events} />
+            <CalendarPageClient events={events} tasks={tasks} />
         </div>
     );
 }
+

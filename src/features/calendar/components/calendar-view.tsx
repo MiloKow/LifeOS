@@ -4,7 +4,7 @@ import { useState } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isSameDay, addMonths, subMonths } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CheckCircle2, Circle } from "lucide-react";
 import type { Event, Task, Project } from "@prisma/client";
 
 type EventWithRelations = Event & {
@@ -12,12 +12,17 @@ type EventWithRelations = Event & {
     project: Pick<Project, "id" | "name" | "color"> | null;
 };
 
+type TaskWithProject = Task & {
+    project: Pick<Project, "id" | "name" | "color"> | null;
+};
+
 interface CalendarViewProps {
     events: EventWithRelations[];
+    tasks?: TaskWithProject[];
     onNewEvent?: () => void;
 }
 
-export function CalendarView({ events, onNewEvent }: CalendarViewProps) {
+export function CalendarView({ events, tasks = [], onNewEvent }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const monthStart = startOfMonth(currentDate);
@@ -29,6 +34,12 @@ export function CalendarView({ events, onNewEvent }: CalendarViewProps) {
     function getEventsForDay(day: Date) {
         return events.filter((event) =>
             isSameDay(new Date(event.startTime), day)
+        );
+    }
+
+    function getTasksForDay(day: Date) {
+        return tasks.filter((task) =>
+            task.dueDate && isSameDay(new Date(task.dueDate), day)
         );
     }
 
@@ -66,12 +77,25 @@ export function CalendarView({ events, onNewEvent }: CalendarViewProps) {
                         </Button>
                     </div>
                 </div>
-                {onNewEvent && (
-                    <Button onClick={onNewEvent} size="sm">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Event
-                    </Button>
-                )}
+                <div className="flex items-center gap-3">
+                    {/* Legend */}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded bg-primary"></span>
+                            Events
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded bg-orange-500"></span>
+                            Tasks
+                        </span>
+                    </div>
+                    {onNewEvent && (
+                        <Button onClick={onNewEvent} size="sm">
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add Event
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Day Headers */}
@@ -90,8 +114,13 @@ export function CalendarView({ events, onNewEvent }: CalendarViewProps) {
             <div className="grid grid-cols-7">
                 {days.map((day, index) => {
                     const dayEvents = getEventsForDay(day);
+                    const dayTasks = getTasksForDay(day);
                     const isToday = isSameDay(day, new Date());
                     const isCurrentMonth = isSameMonth(day, currentDate);
+                    const allItems = [
+                        ...dayEvents.map(e => ({ type: 'event' as const, item: e })),
+                        ...dayTasks.map(t => ({ type: 'task' as const, item: t })),
+                    ];
 
                     return (
                         <div
@@ -112,34 +141,65 @@ export function CalendarView({ events, onNewEvent }: CalendarViewProps) {
                             </div>
 
                             <div className="mt-1 space-y-1">
-                                {dayEvents.slice(0, 3).map((event) => (
-                                    <div
-                                        key={event.id}
-                                        className={cn(
-                                            "truncate rounded px-1.5 py-0.5 text-xs font-medium",
-                                            event.isTimeBlock
-                                                ? "bg-violet-500/20 text-violet-400"
-                                                : "bg-primary/20 text-primary"
-                                        )}
-                                        style={
-                                            event.color
-                                                ? { backgroundColor: `${event.color}20`, color: event.color }
-                                                : event.project?.color
-                                                    ? { backgroundColor: `${event.project.color}20`, color: event.project.color }
-                                                    : undefined
-                                        }
-                                    >
-                                        {!event.allDay && (
-                                            <span className="mr-1">
-                                                {format(new Date(event.startTime), "HH:mm")}
-                                            </span>
-                                        )}
-                                        {event.title}
-                                    </div>
-                                ))}
-                                {dayEvents.length > 3 && (
+                                {allItems.slice(0, 3).map((entry, idx) => {
+                                    if (entry.type === 'event') {
+                                        const event = entry.item as EventWithRelations;
+                                        return (
+                                            <div
+                                                key={`event-${event.id}`}
+                                                className={cn(
+                                                    "truncate rounded px-1.5 py-0.5 text-xs font-medium",
+                                                    event.isTimeBlock
+                                                        ? "bg-violet-500/20 text-violet-400"
+                                                        : "bg-primary/20 text-primary"
+                                                )}
+                                                style={
+                                                    event.color
+                                                        ? { backgroundColor: `${event.color}20`, color: event.color }
+                                                        : event.project?.color
+                                                            ? { backgroundColor: `${event.project.color}20`, color: event.project.color }
+                                                            : undefined
+                                                }
+                                            >
+                                                {!event.allDay && (
+                                                    <span className="mr-1">
+                                                        {format(new Date(event.startTime), "HH:mm")}
+                                                    </span>
+                                                )}
+                                                {event.title}
+                                            </div>
+                                        );
+                                    } else {
+                                        const task = entry.item as TaskWithProject;
+                                        const isDone = task.status === "DONE";
+                                        return (
+                                            <div
+                                                key={`task-${task.id}`}
+                                                className={cn(
+                                                    "truncate rounded px-1.5 py-0.5 text-xs font-medium flex items-center gap-1",
+                                                    isDone
+                                                        ? "bg-green-500/20 text-green-500 line-through"
+                                                        : "bg-orange-500/20 text-orange-500"
+                                                )}
+                                                style={
+                                                    task.project?.color
+                                                        ? { backgroundColor: `${task.project.color}20`, color: task.project.color }
+                                                        : undefined
+                                                }
+                                            >
+                                                {isDone ? (
+                                                    <CheckCircle2 className="h-3 w-3 shrink-0" />
+                                                ) : (
+                                                    <Circle className="h-3 w-3 shrink-0" />
+                                                )}
+                                                <span className="truncate">{task.title}</span>
+                                            </div>
+                                        );
+                                    }
+                                })}
+                                {allItems.length > 3 && (
                                     <div className="text-xs text-muted-foreground px-1.5">
-                                        +{dayEvents.length - 3} more
+                                        +{allItems.length - 3} more
                                     </div>
                                 )}
                             </div>

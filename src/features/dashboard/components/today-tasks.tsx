@@ -64,15 +64,29 @@ export function TodayTasks({ tasks }: TodayTasksProps) {
                                     {task.project && (
                                         <span className="text-xs text-muted-foreground">{task.project.name}</span>
                                     )}
-                                    {task.dueDate && (
-                                        <>
-                                            <Circle className="h-1 w-1 fill-muted-foreground text-muted-foreground" />
-                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                                <Clock className="h-3 w-3" />
-                                                {format(new Date(task.dueDate), "h:mm a")}
-                                            </span>
-                                        </>
-                                    )}
+                                    {task.dueDate && (() => {
+                                        const dueDate = new Date(task.dueDate);
+                                        const today = new Date();
+                                        today.setHours(0, 0, 0, 0);
+                                        const isOverdue = dueDate < today && task.status !== "DONE";
+                                        const isToday = dueDate.toDateString() === new Date().toDateString();
+
+                                        return (
+                                            <>
+                                                {task.project && <Circle className="h-1 w-1 fill-muted-foreground text-muted-foreground" />}
+                                                {isOverdue ? (
+                                                    <Badge variant="destructive" className="text-xs px-1.5 py-0">
+                                                        Overdue • {format(dueDate, "MMM d")}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                        <Clock className="h-3 w-3" />
+                                                        {isToday ? format(dueDate, "h:mm a") : format(dueDate, "MMM d")}
+                                                    </span>
+                                                )}
+                                            </>
+                                        );
+                                    })()}
                                 </div>
                             </div>
                             <Badge className={cn("text-xs", priorityColors[task.priority])}>

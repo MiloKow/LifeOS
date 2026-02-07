@@ -10,16 +10,21 @@ type EventWithRelations = Event & {
     project: Pick<Project, "id" | "name" | "color"> | null;
 };
 
+type TaskWithProject = Task & {
+    project: Pick<Project, "id" | "name" | "color"> | null;
+};
+
 interface CalendarPageClientProps {
     events: EventWithRelations[];
+    tasks: TaskWithProject[];
 }
 
-export function CalendarPageClient({ events }: CalendarPageClientProps) {
+export function CalendarPageClient({ events, tasks }: CalendarPageClientProps) {
     const [showEventForm, setShowEventForm] = useState(false);
 
     return (
         <>
-            <CalendarView events={events} onNewEvent={() => setShowEventForm(true)} />
+            <CalendarView events={events} tasks={tasks} onNewEvent={() => setShowEventForm(true)} />
             <EventForm open={showEventForm} onOpenChange={setShowEventForm} />
         </>
     );
