@@ -9,6 +9,7 @@ export type NoteInput = {
     content: string;
     taskId?: string;
     projectId?: string;
+    folderId?: string;
 };
 
 export async function createNote(data: NoteInput) {

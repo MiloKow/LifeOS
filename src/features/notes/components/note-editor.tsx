@@ -16,9 +16,10 @@ interface NoteEditorProps {
     note: Note | null;
     onClose: () => void;
     onNoteSaved?: (note: Note) => void;
+    defaultFolderId?: string | null;
 }
 
-export function NoteEditor({ note, onClose, onNoteSaved }: NoteEditorProps) {
+export function NoteEditor({ note, onClose, onNoteSaved, defaultFolderId }: NoteEditorProps) {
     const [title, setTitle] = useState(note?.title || "Untitled");
     const [saving, setSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
@@ -78,7 +79,11 @@ export function NoteEditor({ note, onClose, onNoteSaved }: NoteEditorProps) {
             if (currentNoteId) {
                 result = await updateNote(currentNoteId, { title, content });
             } else {
-                result = await createNote({ title, content });
+                result = await createNote({
+                    title,
+                    content,
+                    folderId: defaultFolderId ? defaultFolderId : undefined
+                });
             }
 
             if (result.success && result.note) {

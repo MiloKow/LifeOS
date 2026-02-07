@@ -68,19 +68,32 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
     const [editingFolder, setEditingFolder] = useState<FolderWithCount | null>(null);
     const [folderName, setFolderName] = useState("");
 
+    // Drag and Drop state
+    const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
+
     // Filter notes based on search and folder
     const filteredNotes = notes.filter((note) => {
         const matchesSearch =
             note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
             note.content.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesFolder = selectedFolderId === null || note.folderId === selectedFolderId;
+
+        // Show only uncategorized notes when no folder is selected (Root/"Notes")
+        const matchesFolder = selectedFolderId === null
+            ? note.folderId === null
+            : note.folderId === selectedFolderId;
+
         return matchesSearch && matchesFolder;
     });
 
     // Filter files based on search and folder
     const filteredFiles = files.filter((file) => {
         const matchesSearch = file.filename.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesFolder = selectedFolderId === null || file.folderId === selectedFolderId;
+
+        // Show only uncategorized files when no folder is selected (Root/"Notes")
+        const matchesFolder = selectedFolderId === null
+            ? file.folderId === null
+            : file.folderId === selectedFolderId;
+
         return matchesSearch && matchesFolder;
     });
 
@@ -105,6 +118,8 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
         setSelectedFile(null);
         setShowEditor(true);
     }
+
+    // ... (keep handleSelectFile, handleDeleteNote, etc.)
 
     function handleSelectFile(file: NoteFile) {
         setSelectedFile(file);
@@ -170,7 +185,7 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
         try {
             const formData = new FormData();
             formData.append("file", file);
-            formData.append("noteId", "standalone"); // Use standalone for non-note files
+            formData.append("noteId", "standalone");
 
             const response = await fetch("/api/upload", {
                 method: "POST",
@@ -180,7 +195,6 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
             const result = await response.json();
 
             if (result.success) {
-                // Create the file in the database
                 await createNoteFile({
                     filename: result.filename,
                     filepath: result.filepath,
@@ -203,12 +217,46 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
     }
 
     function handleNoteSaved(note: Note) {
-        // When a new note is saved, update the selected note to include the new ID
-        // This switches the editor from "create" mode to "update" mode
         setSelectedNote(note as NoteWithRelations);
     }
 
+    // Drag and Drop Handlers
+    function handleDragStart(e: React.DragEvent, type: 'note' | 'file', id: string) {
+        e.dataTransfer.setData("application/json", JSON.stringify({ type, id }));
+        e.dataTransfer.effectAllowed = "move";
+    }
+
+    function handleDragOver(e: React.DragEvent, folderId: string | null) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setDragOverFolderId(folderId);
+    }
+
+    function handleDragLeave(e: React.DragEvent) {
+        e.preventDefault();
+        setDragOverFolderId(null); // This might be too aggressive if entering children, but fine for simple list
+    }
+
+    async function handleDrop(e: React.DragEvent, targetFolderId: string | null) {
+        e.preventDefault();
+        setDragOverFolderId(null);
+
+        try {
+            const data = JSON.parse(e.dataTransfer.getData("application/json"));
+            if (data.type === 'note') {
+                await handleMoveNote(data.id, targetFolderId);
+            } else if (data.type === 'file') {
+                await handleMoveFile(data.id, targetFolderId);
+            }
+        } catch (error) {
+            console.error("Drop failed:", error);
+        }
+    }
+
     const totalItems = notes.length + files.length;
+    // Count uncategorized items for "Notes" badge
+    const uncategorizedCount = notes.filter(n => !n.folderId).length + files.filter(f => !f.folderId).length;
+
 
     return (
         <div className="space-y-6">
@@ -248,25 +296,34 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
                         </Button>
                     </div>
 
-                    <button
+                    <div
                         className={cn(
-                            "flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted/50",
-                            selectedFolderId === null && "bg-muted"
+                            "flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm transition-colors cursor-pointer",
+                            selectedFolderId === null ? "bg-muted" : "hover:bg-muted/50",
+                            dragOverFolderId === "root" && "bg-muted/80 ring-2 ring-primary/20"
                         )}
                         onClick={() => setSelectedFolderId(null)}
+                        onDragOver={(e) => handleDragOver(e, null)}
+                        onDrop={(e) => handleDrop(e, null)}
+                        // Use a specific ID like "root" for visual state logic, but pass null to handler
+                        onDragEnter={(e) => { e.preventDefault(); setDragOverFolderId("root"); }}
                     >
                         <FileText className="h-4 w-4 text-muted-foreground" />
-                        <span className="flex-1 text-left">All Items</span>
-                        <span className="text-xs text-muted-foreground">{totalItems}</span>
-                    </button>
+                        <span className="flex-1 text-left">Notes</span>
+                        <span className="text-xs text-muted-foreground">{uncategorizedCount}</span>
+                    </div>
 
                     {folders.map((folder) => (
                         <div
                             key={folder.id}
                             className={cn(
-                                "group flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm transition-colors hover:bg-muted/50",
-                                selectedFolderId === folder.id && "bg-muted"
+                                "group flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm transition-colors",
+                                selectedFolderId === folder.id ? "bg-muted" : "hover:bg-muted/50",
+                                dragOverFolderId === folder.id && "bg-muted/80 ring-2 ring-primary/20"
                             )}
+                            onDragOver={(e) => handleDragOver(e, folder.id)}
+                            onDrop={(e) => handleDrop(e, folder.id)}
+                            onDragEnter={(e) => { e.preventDefault(); setDragOverFolderId(folder.id); }}
                         >
                             <button
                                 className="flex items-center gap-2 flex-1"
@@ -330,6 +387,8 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
                                     return (
                                         <div
                                             key={`note-${note.id}`}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, 'note', note.id)}
                                             className={cn(
                                                 "group relative rounded-lg border border-border/50 p-3 transition-all cursor-pointer hover:bg-muted/50",
                                                 selectedNote?.id === note.id && "border-primary bg-muted/50"
@@ -393,6 +452,8 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
                                     return (
                                         <div
                                             key={`file-${file.id}`}
+                                            draggable
+                                            onDragStart={(e) => handleDragStart(e, 'file', file.id)}
                                             className={cn(
                                                 "group relative rounded-lg border border-border/50 p-3 transition-all cursor-pointer hover:bg-muted/50",
                                                 selectedFile?.id === file.id && "border-primary bg-muted/50"
@@ -470,6 +531,7 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
                                 setSelectedNote(null);
                             }}
                             onNoteSaved={handleNoteSaved}
+                            defaultFolderId={selectedFolderId}
                         />
                     ) : selectedFile ? (
                         <FileViewer
