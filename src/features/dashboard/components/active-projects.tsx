@@ -1,3 +1,5 @@
+"use client";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -59,9 +61,7 @@ export function ActiveProjects({ projects }: ActiveProjectsProps) {
                                         />
                                     </div>
                                     <div>
-                                        <Link href={`/projects/${project.id}`} className="font-medium hover:underline">
-                                            {project.name}
-                                        </Link>
+                                        <p className="font-medium">{project.name}</p>
                                         <div className="flex items-center gap-2 mt-1">
                                             {project.tags.slice(0, 2).map((tag) => (
                                                 <span
