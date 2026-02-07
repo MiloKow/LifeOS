@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { Calendar, Clock, MoreHorizontal, Pencil, Trash2 } from "lucide-react";
 import { toggleTaskStatus, deleteTask } from "@/features/tasks/actions/task-actions";
 import { TaskForm } from "./task-form";
+import { TaskNoteButton } from "./task-note-button";
 import type { Task, Project } from "@prisma/client";
 
 type TaskWithProject = Task & {
@@ -143,6 +144,15 @@ export function TaskList({ tasks }: TaskListProps) {
                             <Badge className={cn("text-xs", statusColors[task.status])}>
                                 {task.status.replace("_", " ")}
                             </Badge>
+
+                            {task.project && (
+                                <TaskNoteButton
+                                    taskId={task.id}
+                                    projectId={task.project.id}
+                                    taskTitle={task.title}
+                                    projectName={task.project.name}
+                                />
+                            )}
 
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>

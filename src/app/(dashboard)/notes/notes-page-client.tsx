@@ -49,6 +49,7 @@ interface NotesPageClientProps {
     notes: NoteWithRelations[];
     folders: FolderWithCount[];
     files: NoteFile[];
+    initialNoteId?: string;
 }
 
 // Utility to strip HTML tags for preview
@@ -57,12 +58,22 @@ function stripHtml(html: string) {
     return html.replace(/<[^>]*>?/gm, '');
 }
 
-export function NotesPageClient({ notes, folders, files }: NotesPageClientProps) {
-    const [selectedNote, setSelectedNote] = useState<NoteWithRelations | null>(null);
+export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesPageClientProps) {
+    const [selectedNote, setSelectedNote] = useState<NoteWithRelations | null>(
+        initialNoteId ? notes.find(n => n.id === initialNoteId) || null : null
+    );
     const [selectedFile, setSelectedFile] = useState<NoteFile | null>(null);
-    const [showEditor, setShowEditor] = useState(false);
+    const [showEditor, setShowEditor] = useState(!!initialNoteId);
     const [searchQuery, setSearchQuery] = useState("");
-    const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+    // Initialize selectedFolderId based on the note's folder if initialNoteId is provided
+    const [selectedFolderId, setSelectedFolderId] = useState<string | null>(() => {
+        if (initialNoteId) {
+            const note = notes.find(n => n.id === initialNoteId);
+            return note?.folderId || null;
+        }
+        return null;
+    });
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -534,6 +545,7 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
                             onClose={() => {
                                 setShowEditor(false);
                                 setSelectedNote(null);
+                                window.history.pushState({}, "", "/notes");
                             }}
                             onNoteSaved={handleNoteSaved}
                             defaultFolderId={selectedFolderId}

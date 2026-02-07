@@ -46,6 +46,7 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createTask } from "@/features/tasks/actions/task-actions";
+import { TaskNoteButton } from "@/features/tasks/components/task-note-button";
 import { updateProject, deleteProject } from "@/features/projects/actions/project-actions";
 import type { Project, Task, Milestone, Tag, Note, TimeEntry, TaskStatus, Priority, ProjectStatus } from "@prisma/client";
 
@@ -62,6 +63,12 @@ type ProjectWithDetails = Project & {
 
 interface ProjectDetailClientProps {
     project: ProjectWithDetails;
+}
+
+// Utility to strip HTML tags for preview
+function stripHtml(html: string) {
+    if (!html) return "";
+    return html.replace(/<[^>]*>?/gm, '');
 }
 
 const statusColors: Record<string, string> = {
@@ -302,6 +309,12 @@ export function ProjectDetailClient({ project }: ProjectDetailClientProps) {
                                         </p>
                                     )}
                                 </div>
+                                <TaskNoteButton
+                                    taskId={task.id}
+                                    projectId={project.id}
+                                    taskTitle={task.title}
+                                    projectName={project.name}
+                                />
                                 <span className={cn("text-xs", priorityColors[task.priority])}>
                                     {task.priority}
                                 </span>
@@ -353,12 +366,12 @@ export function ProjectDetailClient({ project }: ProjectDetailClientProps) {
                         {project.notes.slice(0, 5).map((note) => (
                             <Link
                                 key={note.id}
-                                href={`/notes?noteId=${note.id}`}
+                                href={`/notes/${note.id}`}
                                 className="block p-3 rounded-lg border border-border/50 hover:bg-muted/50 transition-colors"
                             >
                                 <p className="font-medium">{note.title}</p>
                                 <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
-                                    {note.content.slice(0, 150)}...
+                                    {stripHtml(note.content).slice(0, 150)}...
                                 </p>
                                 <p className="text-xs text-muted-foreground mt-2">
                                     {format(new Date(note.updatedAt), "MMM d, yyyy")}
