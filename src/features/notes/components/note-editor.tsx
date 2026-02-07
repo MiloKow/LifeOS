@@ -1,51 +1,109 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Save, X } from "lucide-react";
 import { createNote, updateNote } from "@/features/notes/actions/note-actions";
+import { BubbleToolbar } from "./bubble-toolbar";
+import { useEditor, EditorContent } from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
+import StarterKit from "@tiptap/starter-kit";
+import Placeholder from "@tiptap/extension-placeholder";
 import type { Note } from "@prisma/client";
 
 interface NoteEditorProps {
     note: Note | null;
     onClose: () => void;
+    onNoteSaved?: (note: Note) => void;
 }
 
-export function NoteEditor({ note, onClose }: NoteEditorProps) {
+export function NoteEditor({ note, onClose, onNoteSaved }: NoteEditorProps) {
     const [title, setTitle] = useState(note?.title || "Untitled");
-    const [content, setContent] = useState(note?.content || "");
     const [saving, setSaving] = useState(false);
     const [hasChanges, setHasChanges] = useState(false);
 
-    useEffect(() => {
-        setTitle(note?.title || "Untitled");
-        setContent(note?.content || "");
-        setHasChanges(false);
-    }, [note]);
+    // Keep track of the current note ID locally to handle creation without prop update
+    const [currentNoteId, setCurrentNoteId] = useState<string | null>(note?.id || null);
 
-    async function handleSave() {
+    const editor = useEditor({
+        extensions: [
+            StarterKit.configure({
+                heading: {
+                    levels: [1, 2, 3],
+                },
+            }),
+            Placeholder.configure({
+                placeholder: "Commencez à écrire...",
+                emptyEditorClass: "is-editor-empty",
+            }),
+        ],
+        content: note?.content || "",
+        editorProps: {
+            attributes: {
+                class: "prose prose-sm dark:prose-invert max-w-none min-h-[500px] outline-none focus:outline-none px-4 py-2",
+            },
+        },
+        onUpdate: () => {
+            setHasChanges(true);
+        },
+    });
+
+    // Update editor content when note changes via props
+    useEffect(() => {
+        if (note) {
+            setCurrentNoteId(note.id);
+            setTitle(note.title);
+            if (editor && note.content !== undefined && editor.getHTML() !== note.content) {
+                editor.commands.setContent(note.content || "");
+            }
+        } else {
+            setCurrentNoteId(null);
+            setTitle("Untitled");
+            if (editor) {
+                editor.commands.setContent("");
+            }
+        }
+        setHasChanges(false);
+    }, [note, editor]);
+
+    const handleSave = useCallback(async () => {
+        if (!editor) return;
+
         setSaving(true);
         try {
-            if (note) {
-                await updateNote(note.id, { title, content });
+            const content = editor.getHTML();
+            let result;
+
+            if (currentNoteId) {
+                result = await updateNote(currentNoteId, { title, content });
             } else {
-                await createNote({ title, content });
+                result = await createNote({ title, content });
             }
-            setHasChanges(false);
+
+            if (result.success && result.note) {
+                setCurrentNoteId(result.note.id);
+                setHasChanges(false);
+                if (onNoteSaved) {
+                    onNoteSaved(result.note);
+                }
+            }
         } catch (error) {
             console.error("Failed to save note:", error);
         } finally {
             setSaving(false);
         }
-    }
+    }, [editor, currentNoteId, title, onNoteSaved]);
 
     // Auto-save on blur
-    async function handleBlur() {
+    const handleBlur = useCallback(async () => {
         if (hasChanges) {
             await handleSave();
         }
+    }, [hasChanges, handleSave]);
+
+    if (!editor) {
+        return null;
     }
 
     return (
@@ -81,23 +139,20 @@ export function NoteEditor({ note, onClose }: NoteEditorProps) {
                 </div>
             </div>
 
-            {/* Editor */}
-            <div className="flex-1 p-4">
-                <Textarea
-                    value={content}
-                    onChange={(e) => {
-                        setContent(e.target.value);
-                        setHasChanges(true);
-                    }}
+            {/* Editor with Bubble Menu */}
+            <div className="flex-1 overflow-auto">
+                <BubbleMenu editor={editor}>
+                    <BubbleToolbar editor={editor} />
+                </BubbleMenu>
+                <EditorContent
+                    editor={editor}
                     onBlur={handleBlur}
-                    className="min-h-[500px] h-full resize-none border-0 bg-transparent focus-visible:ring-0 text-base leading-relaxed"
-                    placeholder="Start writing... (Markdown supported)"
                 />
             </div>
 
             {/* Footer hints */}
             <div className="border-t border-border/50 px-4 py-2 text-xs text-muted-foreground">
-                Tip: Use Markdown syntax for formatting. Auto-saves on blur.
+                Astuce: Sélectionnez du texte pour afficher la barre d&apos;outils. Auto-save au blur.
             </div>
         </div>
     );

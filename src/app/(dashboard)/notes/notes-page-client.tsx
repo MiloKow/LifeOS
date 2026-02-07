@@ -48,6 +48,12 @@ interface NotesPageClientProps {
     files: NoteFile[];
 }
 
+// Utility to strip HTML tags for preview
+function stripHtml(html: string) {
+    if (!html) return "";
+    return html.replace(/<[^>]*>?/gm, '');
+}
+
 export function NotesPageClient({ notes, folders, files }: NotesPageClientProps) {
     const [selectedNote, setSelectedNote] = useState<NoteWithRelations | null>(null);
     const [selectedFile, setSelectedFile] = useState<NoteFile | null>(null);
@@ -196,6 +202,12 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
         }
     }
 
+    function handleNoteSaved(note: Note) {
+        // When a new note is saved, update the selected note to include the new ID
+        // This switches the editor from "create" mode to "update" mode
+        setSelectedNote(note as NoteWithRelations);
+    }
+
     const totalItems = notes.length + files.length;
 
     return (
@@ -331,7 +343,7 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
                                                         <p className="font-medium truncate">{note.title}</p>
                                                     </div>
                                                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2 ml-6">
-                                                        {note.content.slice(0, 100)}...
+                                                        {stripHtml(note.content).slice(0, 100)}...
                                                     </p>
                                                     <div className="flex items-center gap-2 mt-2 ml-6">
                                                         <span className="text-xs text-muted-foreground">
@@ -457,6 +469,7 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
                                 setShowEditor(false);
                                 setSelectedNote(null);
                             }}
+                            onNoteSaved={handleNoteSaved}
                         />
                     ) : selectedFile ? (
                         <FileViewer
