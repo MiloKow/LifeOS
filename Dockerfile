@@ -7,6 +7,9 @@ RUN apk add --no-cache libc6-compat
 FROM base AS deps
 WORKDIR /app
 COPY package.json package-lock.json* ./
+# Copy Prisma files before npm ci (needed for postinstall prisma generate)
+COPY prisma ./prisma
+COPY prisma.config.ts ./
 RUN npm ci
 
 # Build the application
@@ -47,6 +50,10 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 RUN printf '#!/bin/sh\nset -e\nnpx prisma migrate deploy\nexec node server.js\n' > /app/entrypoint.sh && \
     chmod +x /app/entrypoint.sh && \
     chown nextjs:nodejs /app/entrypoint.sh
+
+# Create uploads directory with proper permissions
+RUN mkdir -p /app/public/uploads/notes && \
+    chown -R nextjs:nodejs /app/public/uploads
 
 USER nextjs
 

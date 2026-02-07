@@ -26,13 +26,16 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/vie_perso?schema=public
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/vie_perso?schema=public&sslmode=disable
       - AUTH_SECRET=${AUTH_SECRET}
       - AUTH_TRUST_HOST=true
       - NEXTAUTH_URL=http://localhost:3000
+    volumes:
+      - uploads_data:/app/public/uploads
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   postgres_data:
+  uploads_data:

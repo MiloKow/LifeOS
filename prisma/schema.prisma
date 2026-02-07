@@ -78,6 +78,7 @@ model User {
   events       Event[]
   notes        Note[]
   noteFolders  NoteFolder[]
+  noteFiles    NoteFile[]
   companies    Company[]
   timeEntries  TimeEntry[]
   transactions Transaction[]
@@ -278,11 +279,32 @@ model NoteFolder {
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   notes Note[]
+  files NoteFile[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+}
+
+model NoteFile {
+  id        String   @id @default(cuid())
+  filename  String   // Nom original du fichier (affiché dans la liste)
+  filepath  String   // Chemin relatif vers le fichier stocké
+  mimeType  String   // image/png, application/pdf, etc.
+  size      Int      // Taille en bytes
+
+  // Relations
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  folderId  String?
+  folder    NoteFolder? @relation(fields: [folderId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([folderId])
 }
 
 // ===================
