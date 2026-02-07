@@ -331,7 +331,9 @@ export function NotesPageClient({ notes, folders, files }: NotesPageClientProps)
                             >
                                 <Folder className="h-4 w-4 text-muted-foreground" />
                                 <span className="flex-1 text-left truncate">{folder.name}</span>
-                                <span className="text-xs text-muted-foreground">{folder._count.notes}</span>
+                                <span className="text-xs text-muted-foreground">
+                                    {folder._count.notes + (folder._count.files || 0)}
+                                </span>
                             </button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>

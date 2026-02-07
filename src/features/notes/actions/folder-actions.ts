@@ -83,7 +83,10 @@ export async function getFolders() {
             where: { userId: session.user.id },
             include: {
                 _count: {
-                    select: { notes: true },
+                    select: {
+                        notes: true,
+                        files: true
+                    },
                 },
             },
             orderBy: { name: "asc" },
