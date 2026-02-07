@@ -120,6 +120,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
@@ -175,7 +176,8 @@
 
 .tiptap ul,
 .tiptap ol {
-  margin-left: 1.5rem;
+  padding-left: 1.5rem;
+  margin-left: 0;
   margin-bottom: 0.75rem;
 }
 
@@ -189,6 +191,12 @@
 
 .tiptap li {
   margin-bottom: 0.25rem;
+}
+
+/* Fix nested paragraph spacing inside lists */
+.tiptap li p {
+  margin-top: 0;
+  margin-bottom: 0;
 }
 
 .tiptap code {
