@@ -34,7 +34,10 @@ type NoteWithRelations = Note & {
 };
 
 type FolderWithCount = NoteFolder & {
-    _count: { notes: number };
+    _count: {
+        notes: number;
+        files: number;
+    };
 };
 
 // Union type for items in the list
