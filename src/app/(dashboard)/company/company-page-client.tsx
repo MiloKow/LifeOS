@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { Building2, Clock, DollarSign, Plus, TrendingDown, TrendingUp } from "lucide-react";
+import { Building2, Clock, DollarSign, Plus, TrendingDown, TrendingUp, CalendarClock } from "lucide-react";
 import {
     Dialog,
     DialogContent,
@@ -19,12 +20,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { createCompany } from "@/features/company/actions/company-actions";
-import type { Company, TimeEntry, Project } from "@prisma/client";
+import type { Company, TimeEntry, Project, Expense } from "@prisma/client";
 
 type CompanyWithCount = Company & {
     _count: {
         projects: number;
         transactions: number;
+        clients: number;
+        invoices: number;
     };
 };
 
@@ -46,6 +49,7 @@ interface CompanyPageClientProps {
         expenses: number;
         balance: number;
     };
+    upcomingRenewals: (Expense & { company: { id: string; name: string } })[];
 }
 
 export function CompanyPageClient({
@@ -53,6 +57,7 @@ export function CompanyPageClient({
     timeEntries,
     totalHours,
     financialSummary,
+    upcomingRenewals,
 }: CompanyPageClientProps) {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -154,6 +159,53 @@ export function CompanyPageClient({
                 </Card>
             </div>
 
+            {/* Upcoming Renewals Alert */}
+            {upcomingRenewals.length > 0 && (
+                <Card className="border-amber-500/50 bg-amber-500/10 backdrop-blur-sm">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <CalendarClock className="h-5 w-5 text-amber-500" />
+                            Renouvellements à venir
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            {upcomingRenewals.slice(0, 6).map((renewal) => {
+                                const daysUntil = Math.ceil(
+                                    (new Date(renewal.renewalDate!).getTime() - new Date().getTime()) /
+                                    (1000 * 60 * 60 * 24)
+                                );
+                                return (
+                                    <Link
+                                        key={renewal.id}
+                                        href={`/company/${renewal.company.id}`}
+                                        className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-card/50 p-3 hover:border-amber-500 transition-colors"
+                                    >
+                                        <div>
+                                            <p className="font-medium text-sm">{renewal.name}</p>
+                                            <p className="text-xs text-muted-foreground">{renewal.company.name}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="font-bold text-amber-500">
+                                                €{Number(renewal.amount).toLocaleString()}
+                                            </p>
+                                            <Badge
+                                                variant={daysUntil <= 7 ? "destructive" : "secondary"}
+                                                className="text-xs"
+                                            >
+                                                {daysUntil === 0 ? "Aujourd'hui" :
+                                                    daysUntil === 1 ? "Demain" :
+                                                        `${daysUntil}j`}
+                                            </Badge>
+                                        </div>
+                                    </Link>
+                                );
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             <div className="grid gap-6 lg:grid-cols-2">
                 {/* Companies List */}
                 <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
@@ -173,9 +225,10 @@ export function CompanyPageClient({
                         ) : (
                             <div className="space-y-3">
                                 {companies.map((company) => (
-                                    <div
+                                    <Link
                                         key={company.id}
-                                        className="flex items-center justify-between rounded-lg border border-border/50 p-4 hover:bg-muted/50 transition-colors"
+                                        href={`/company/${company.id}`}
+                                        className="flex items-center justify-between rounded-lg border border-border/50 p-4 hover:bg-muted/50 hover:border-primary/50 transition-colors cursor-pointer"
                                     >
                                         <div className="flex items-center gap-3">
                                             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
@@ -184,14 +237,12 @@ export function CompanyPageClient({
                                             <div>
                                                 <p className="font-medium">{company.name}</p>
                                                 <p className="text-xs text-muted-foreground">
-                                                    {company._count.projects} projects
+                                                    {company._count.projects} projets • {company._count.clients} clients
                                                 </p>
                                             </div>
                                         </div>
-                                        <Button variant="ghost" size="sm">
-                                            View
-                                        </Button>
-                                    </div>
+                                        <Badge variant="secondary">Voir →</Badge>
+                                    </Link>
                                 ))}
                             </div>
                         )}

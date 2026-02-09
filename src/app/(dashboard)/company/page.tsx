@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getCompanies, getTimeEntries, getFinancialSummary } from "@/features/company/actions/company-actions";
+import { getUpcomingRenewals } from "@/features/company/actions/expense-actions";
 import { CompanyPageClient } from "./company-page-client";
 import { startOfWeek, endOfWeek } from "date-fns";
 
@@ -17,8 +18,11 @@ export default async function CompanyPage() {
     const weekStart = startOfWeek(now, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
 
-    const timeEntries = await getTimeEntries({ startDate: weekStart, endDate: weekEnd });
-    const financialSummary = await getFinancialSummary();
+    const [timeEntries, financialSummary, upcomingRenewals] = await Promise.all([
+        getTimeEntries({ startDate: weekStart, endDate: weekEnd }),
+        getFinancialSummary(),
+        getUpcomingRenewals(30), // Get renewals in next 30 days
+    ]);
 
     // Calculate total hours this week
     const totalMinutes = timeEntries.reduce((acc, e) => acc + (e.duration || 0), 0);
@@ -30,6 +34,7 @@ export default async function CompanyPage() {
             timeEntries={timeEntries}
             totalHours={totalHours}
             financialSummary={financialSummary}
+            upcomingRenewals={upcomingRenewals}
         />
     );
 }

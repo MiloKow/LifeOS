@@ -56,6 +56,24 @@ enum TransactionType {
   EXPENSE
 }
 
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum ExpenseType {
+  ONE_TIME
+  SUBSCRIPTION
+}
+
+enum SubscriptionFrequency {
+  MONTHLY
+  YEARLY
+}
+
 // ===================
 // AUTH MODELS
 // ===================
@@ -322,6 +340,9 @@ model Company {
 
   projects     Project[]
   transactions Transaction[]
+  clients      Client[]
+  invoices     Invoice[]
+  expenses     Expense[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -368,4 +389,101 @@ model Transaction {
   @@index([userId])
   @@index([companyId])
   @@index([date])
+}
+
+// ===================
+// CLIENT & INVOICE MODELS
+// ===================
+
+model Client {
+  id          String   @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  address     String?
+  notes       String?  @db.Text
+
+  // Subscription info for MRR/ARR calculation
+  isActive            Boolean   @default(true)
+  subscriptionType    String?   // "monthly", "yearly", "one-time"
+  subscriptionAmount  Decimal?  @db.Decimal(10, 2)
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+
+  companyId   String
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  invoices    Invoice[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([isActive])
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  invoiceNumber String        // Format: INV-2026-001
+  status        InvoiceStatus @default(DRAFT)
+  issueDate     DateTime      @default(now())
+  dueDate       DateTime
+  paidDate      DateTime?
+
+  subtotal      Decimal       @db.Decimal(10, 2)
+  taxRate       Decimal?      @db.Decimal(5, 2)
+  taxAmount     Decimal?      @db.Decimal(10, 2)
+  total         Decimal       @db.Decimal(10, 2)
+
+  notes         String?       @db.Text
+
+  clientId      String
+  client        Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  companyId     String
+  company       Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  items         InvoiceItem[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([companyId])
+  @@index([clientId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  description String
+  quantity    Int     @default(1)
+  unitPrice   Decimal @db.Decimal(10, 2)
+  total       Decimal @db.Decimal(10, 2)
+
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+}
+
+model Expense {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  amount      Decimal     @db.Decimal(10, 2)
+  type        ExpenseType
+  date        DateTime    @default(now())
+
+  // For subscriptions
+  frequency   SubscriptionFrequency?
+  renewalDate DateTime?
+
+  companyId String
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([renewalDate])
+  @@index([type])
 }

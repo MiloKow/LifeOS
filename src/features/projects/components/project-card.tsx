@@ -13,13 +13,14 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { deleteProject } from "@/features/projects/actions/project-actions";
-import type { Project, Tag } from "@prisma/client";
+import type { Project, Tag, Company } from "@prisma/client";
 
 type ProjectWithMeta = Project & {
     progress: number;
     totalTasks: number;
     completedTasks: number;
     tags: Tag[];
+    company?: Pick<Company, "id" | "name"> | null;
 };
 
 interface ProjectCardProps {
@@ -34,11 +35,18 @@ const statusColors = {
     ARCHIVED: "bg-zinc-500/10 text-zinc-500",
 };
 
-const contextLabels = {
-    PERSONAL: "Personal",
+const contextLabels: Record<string, string> = {
+    PERSONAL: "Personnel",
     PROFESSIONAL: "Epitech",
-    COMPANY: "Company",
+    COMPANY: "Entreprise",
 };
+
+function getContextLabel(project: ProjectWithMeta): string {
+    if (project.context === "COMPANY" && project.company?.name) {
+        return project.company.name;
+    }
+    return contextLabels[project.context] || project.context;
+}
 
 export function ProjectCard({ project }: ProjectCardProps) {
     async function handleDelete() {
@@ -70,7 +78,7 @@ export function ProjectCard({ project }: ProjectCardProps) {
                                 {project.status.replace("_", " ")}
                             </Badge>
                             <span className="text-xs text-muted-foreground">
-                                {contextLabels[project.context]}
+                                {getContextLabel(project)}
                             </span>
                         </div>
                     </div>

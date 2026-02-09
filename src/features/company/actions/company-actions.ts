@@ -34,6 +34,46 @@ export async function createCompany(data: CompanyInput) {
     }
 }
 
+export async function updateCompany(companyId: string, data: Partial<CompanyInput>) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { error: "Unauthorized" };
+    }
+
+    try {
+        const company = await db.company.update({
+            where: { id: companyId, userId: session.user.id },
+            data,
+        });
+
+        revalidatePath("/company");
+        revalidatePath(`/company/${companyId}`);
+        return { success: true, company };
+    } catch (error) {
+        console.error("Failed to update company:", error);
+        return { error: "Failed to update company" };
+    }
+}
+
+export async function deleteCompany(companyId: string) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { error: "Unauthorized" };
+    }
+
+    try {
+        await db.company.delete({
+            where: { id: companyId, userId: session.user.id },
+        });
+
+        revalidatePath("/company");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to delete company:", error);
+        return { error: "Failed to delete company" };
+    }
+}
+
 export async function getCompanies() {
     const session = await auth();
     if (!session?.user?.id) {
@@ -48,6 +88,8 @@ export async function getCompanies() {
                     select: {
                         projects: true,
                         transactions: true,
+                        clients: true,
+                        invoices: true,
                     },
                 },
             },

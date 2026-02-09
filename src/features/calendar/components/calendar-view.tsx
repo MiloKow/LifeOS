@@ -4,8 +4,8 @@ import { useState } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isSameDay, addMonths, subMonths } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Plus, CheckCircle2, Circle } from "lucide-react";
-import type { Event, Task, Project } from "@prisma/client";
+import { ChevronLeft, ChevronRight, Plus, CheckCircle2, Circle, RefreshCw } from "lucide-react";
+import type { Event, Task, Project, Expense } from "@prisma/client";
 
 type EventWithRelations = Event & {
     task: Pick<Task, "id" | "title" | "status"> | null;
@@ -16,13 +16,18 @@ type TaskWithProject = Task & {
     project: Pick<Project, "id" | "name" | "color"> | null;
 };
 
+type RenewalWithCompany = Expense & {
+    company: { id: string; name: string };
+};
+
 interface CalendarViewProps {
     events: EventWithRelations[];
     tasks?: TaskWithProject[];
+    renewals?: RenewalWithCompany[];
     onNewEvent?: () => void;
 }
 
-export function CalendarView({ events, tasks = [], onNewEvent }: CalendarViewProps) {
+export function CalendarView({ events, tasks = [], renewals = [], onNewEvent }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const monthStart = startOfMonth(currentDate);
@@ -40,6 +45,12 @@ export function CalendarView({ events, tasks = [], onNewEvent }: CalendarViewPro
     function getTasksForDay(day: Date) {
         return tasks.filter((task) =>
             task.dueDate && isSameDay(new Date(task.dueDate), day)
+        );
+    }
+
+    function getRenewalsForDay(day: Date) {
+        return renewals.filter((renewal) =>
+            renewal.renewalDate && isSameDay(new Date(renewal.renewalDate), day)
         );
     }
 
@@ -88,6 +99,10 @@ export function CalendarView({ events, tasks = [], onNewEvent }: CalendarViewPro
                             <span className="w-2 h-2 rounded bg-orange-500"></span>
                             Tasks
                         </span>
+                        <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded bg-amber-500"></span>
+                            Renewals
+                        </span>
                     </div>
                     {onNewEvent && (
                         <Button onClick={onNewEvent} size="sm">
@@ -115,11 +130,13 @@ export function CalendarView({ events, tasks = [], onNewEvent }: CalendarViewPro
                 {days.map((day, index) => {
                     const dayEvents = getEventsForDay(day);
                     const dayTasks = getTasksForDay(day);
+                    const dayRenewals = getRenewalsForDay(day);
                     const isToday = isSameDay(day, new Date());
                     const isCurrentMonth = isSameMonth(day, currentDate);
                     const allItems = [
                         ...dayEvents.map(e => ({ type: 'event' as const, item: e })),
                         ...dayTasks.map(t => ({ type: 'task' as const, item: t })),
+                        ...dayRenewals.map(r => ({ type: 'renewal' as const, item: r })),
                     ];
 
                     return (
@@ -169,7 +186,7 @@ export function CalendarView({ events, tasks = [], onNewEvent }: CalendarViewPro
                                                 {event.title}
                                             </div>
                                         );
-                                    } else {
+                                    } else if (entry.type === 'task') {
                                         const task = entry.item as TaskWithProject;
                                         const isDone = task.status === "DONE";
                                         return (
@@ -193,6 +210,17 @@ export function CalendarView({ events, tasks = [], onNewEvent }: CalendarViewPro
                                                     <Circle className="h-3 w-3 shrink-0" />
                                                 )}
                                                 <span className="truncate">{task.title}</span>
+                                            </div>
+                                        );
+                                    } else {
+                                        const renewal = entry.item as RenewalWithCompany;
+                                        return (
+                                            <div
+                                                key={`renewal-${renewal.id}`}
+                                                className="truncate rounded px-1.5 py-0.5 text-xs font-medium flex items-center gap-1 bg-amber-500/20 text-amber-500"
+                                            >
+                                                <RefreshCw className="h-3 w-3 shrink-0" />
+                                                <span className="truncate">€{Number(renewal.amount)} {renewal.name}</span>
                                             </div>
                                         );
                                     }

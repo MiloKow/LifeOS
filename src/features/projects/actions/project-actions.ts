@@ -128,6 +128,12 @@ export async function getProjects(options?: {
                     },
                 },
                 tags: true,
+                company: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
             },
             orderBy: [{ status: "asc" }, { endDate: "asc" }, { createdAt: "desc" }],
         });

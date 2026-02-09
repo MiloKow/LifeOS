@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,9 @@ import {
     SelectItem,
     SelectTrigger,
     SelectValue,
+    SelectGroup,
+    SelectLabel,
+    SelectSeparator,
 } from "@/components/ui/select";
 import {
     Dialog,
@@ -26,7 +29,7 @@ import { CalendarIcon, Loader2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { createProject, updateProject, type ProjectInput } from "@/features/projects/actions/project-actions";
-import { ProjectStatus, Context, type Project } from "@prisma/client";
+import { ProjectStatus, Context, type Project, type Company } from "@prisma/client";
 
 const projectColors = [
     "#6366f1", // Indigo
@@ -43,9 +46,10 @@ interface ProjectFormProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     project?: Project;
+    companies?: Pick<Company, "id" | "name">[];
 }
 
-export function ProjectForm({ open, onOpenChange, project }: ProjectFormProps) {
+export function ProjectForm({ open, onOpenChange, project, companies = [] }: ProjectFormProps) {
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState<ProjectInput>({
         name: project?.name || "",
@@ -55,7 +59,35 @@ export function ProjectForm({ open, onOpenChange, project }: ProjectFormProps) {
         startDate: project?.startDate || undefined,
         endDate: project?.endDate || undefined,
         color: project?.color || projectColors[0],
+        companyId: project?.companyId || undefined,
     });
+
+    // Combine context selection - "PERSONAL", "PROFESSIONAL", or "COMPANY:companyId"
+    const [contextSelection, setContextSelection] = useState<string>(() => {
+        if (project?.companyId) {
+            return `COMPANY:${project.companyId}`;
+        }
+        return project?.context || Context.PERSONAL;
+    });
+
+    function handleContextChange(value: string) {
+        setContextSelection(value);
+
+        if (value.startsWith("COMPANY:")) {
+            const companyId = value.replace("COMPANY:", "");
+            setFormData({
+                ...formData,
+                context: Context.COMPANY,
+                companyId,
+            });
+        } else {
+            setFormData({
+                ...formData,
+                context: value as Context,
+                companyId: undefined,
+            });
+        }
+    }
 
     async function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
@@ -76,7 +108,9 @@ export function ProjectForm({ open, onOpenChange, project }: ProjectFormProps) {
                 startDate: undefined,
                 endDate: undefined,
                 color: projectColors[0],
+                companyId: undefined,
             });
+            setContextSelection(Context.PERSONAL);
         } catch (error) {
             console.error("Failed to save project:", error);
         } finally {
@@ -139,16 +173,31 @@ export function ProjectForm({ open, onOpenChange, project }: ProjectFormProps) {
                         <div className="space-y-2">
                             <Label>Context</Label>
                             <Select
-                                value={formData.context}
-                                onValueChange={(value) => setFormData({ ...formData, context: value as Context })}
+                                value={contextSelection}
+                                onValueChange={handleContextChange}
                             >
                                 <SelectTrigger>
-                                    <SelectValue />
+                                    <SelectValue placeholder="Select context..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="PERSONAL">Personal</SelectItem>
-                                    <SelectItem value="PROFESSIONAL">Professional (Epitech)</SelectItem>
-                                    <SelectItem value="COMPANY">Company</SelectItem>
+                                    <SelectGroup>
+                                        <SelectLabel>Personnel</SelectLabel>
+                                        <SelectItem value="PERSONAL">Personnel</SelectItem>
+                                        <SelectItem value="PROFESSIONAL">Professionnel (Epitech)</SelectItem>
+                                    </SelectGroup>
+                                    {companies.length > 0 && (
+                                        <>
+                                            <SelectSeparator />
+                                            <SelectGroup>
+                                                <SelectLabel>Entreprises</SelectLabel>
+                                                {companies.map((company) => (
+                                                    <SelectItem key={company.id} value={`COMPANY:${company.id}`}>
+                                                        {company.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectGroup>
+                                        </>
+                                    )}
                                 </SelectContent>
                             </Select>
                         </div>

@@ -1,12 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { ProjectForm } from "@/features/projects/components/project-form";
+import { getCompanies } from "@/features/company/actions/company-actions";
+import type { Company } from "@prisma/client";
 
 export function ProjectsPageHeader() {
     const [showForm, setShowForm] = useState(false);
+    const [companies, setCompanies] = useState<Pick<Company, "id" | "name">[]>([]);
+
+    useEffect(() => {
+        async function loadCompanies() {
+            const data = await getCompanies();
+            setCompanies(data.map(c => ({ id: c.id, name: c.name })));
+        }
+        loadCompanies();
+    }, []);
 
     return (
         <>
@@ -23,7 +34,11 @@ export function ProjectsPageHeader() {
                 </Button>
             </div>
 
-            <ProjectForm open={showForm} onOpenChange={setShowForm} />
+            <ProjectForm
+                open={showForm}
+                onOpenChange={setShowForm}
+                companies={companies}
+            />
         </>
     );
 }
