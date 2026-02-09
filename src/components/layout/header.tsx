@@ -12,6 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { NotificationList } from "@/features/notifications/components/notification-list";
+import { useNotificationStore } from "@/stores/notification-store";
 import { Moon, Sun, Search, Bell, LogOut, User, Settings } from "lucide-react";
 import { logout } from "@/features/auth/actions/auth-actions";
 import { useSession } from "next-auth/react";
@@ -21,6 +24,7 @@ import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 export function Header() {
     const { theme, setTheme } = useTheme();
     const { data: session } = useSession();
+    const { unreadCount, isOpen, setIsOpen } = useNotificationStore();
 
     const userInitials = session?.user?.name
         ?.split(" ")
@@ -51,10 +55,19 @@ export function Header() {
             {/* Actions */}
             <div className="flex items-center gap-2">
                 {/* Notifications */}
-                <Button variant="ghost" size="icon" className="relative h-9 w-9">
-                    <Bell className="h-4 w-4" />
-                    <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
-                </Button>
+                <Popover open={isOpen} onOpenChange={setIsOpen}>
+                    <PopoverTrigger asChild>
+                        <Button variant="ghost" size="icon" className="relative h-9 w-9">
+                            <Bell className="h-4 w-4" />
+                            {unreadCount > 0 && (
+                                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
+                            )}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="p-0" align="end" sideOffset={8}>
+                        <NotificationList />
+                    </PopoverContent>
+                </Popover>
 
                 {/* Theme Toggle */}
                 <Button
@@ -113,6 +126,6 @@ export function Header() {
                     </DropdownMenuContent>
                 </DropdownMenu>
             </div>
-        </header>
+        </header >
     );
 }
