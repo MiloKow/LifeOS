@@ -270,6 +270,8 @@ model Event {
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
+  notes     Note[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -290,6 +292,8 @@ model Note {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   taskId    String?
   task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  eventId   String?
+  event     Event?   @relation(fields: [eventId], references: [id], onDelete: SetNull)
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
   folderId  String?
@@ -301,6 +305,7 @@ model Note {
 
   @@index([userId])
   @@index([taskId])
+  @@index([eventId])
   @@index([projectId])
   @@index([folderId])
 }

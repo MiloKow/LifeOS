@@ -5,6 +5,7 @@ import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOf
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, ChevronRight, Plus, CheckCircle2, Circle, RefreshCw, Building2, FolderKanban, User } from "lucide-react";
+import { EventNoteButton } from "./event-note-button";
 import type { Event, Task, Project, Company } from "@prisma/client";
 
 type EventWithRelations = Event & {
@@ -227,7 +228,7 @@ export function CalendarView({ events, tasks = [], renewals = [], onNewEvent, on
                                             <div
                                                 key={`event-${event.id}`}
                                                 className={cn(
-                                                    "truncate rounded px-1.5 py-0.5 text-xs font-medium",
+                                                    "group truncate rounded px-1.5 py-0.5 text-xs font-medium flex items-center gap-1",
                                                     !hasCustomColor && style.bg,
                                                     !hasCustomColor && style.text
                                                 )}
@@ -238,12 +239,23 @@ export function CalendarView({ events, tasks = [], renewals = [], onNewEvent, on
                                                 }
                                                 title={label ? `${event.title} (${label})` : event.title}
                                             >
-                                                {!event.allDay && (
-                                                    <span className="mr-1">
-                                                        {format(new Date(event.startTime), "HH:mm")}
-                                                    </span>
-                                                )}
-                                                {event.title}
+                                                <span className="truncate flex-1">
+                                                    {!event.allDay && (
+                                                        <span className="mr-1">
+                                                            {format(new Date(event.startTime), "HH:mm")}
+                                                        </span>
+                                                    )}
+                                                    {event.title}
+                                                </span>
+                                                <EventNoteButton
+                                                    eventId={event.id}
+                                                    eventTitle={event.title}
+                                                    projectId={event.project?.id}
+                                                    projectName={event.project?.name}
+                                                    companyId={event.company?.id}
+                                                    companyName={event.company?.name}
+                                                    size="sm"
+                                                />
                                             </div>
                                         );
                                     } else if (entry.type === 'task') {
