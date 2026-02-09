@@ -4,12 +4,13 @@ import { useState } from "react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, isSameMonth, isSameDay, addMonths, subMonths } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, ChevronRight, Plus, CheckCircle2, Circle, RefreshCw } from "lucide-react";
-import type { Event, Task, Project, Expense } from "@prisma/client";
+import { ChevronLeft, ChevronRight, Plus, CheckCircle2, Circle, RefreshCw, Building2, FolderKanban, User } from "lucide-react";
+import type { Event, Task, Project, Company } from "@prisma/client";
 
 type EventWithRelations = Event & {
     task: Pick<Task, "id" | "title" | "status"> | null;
     project: Pick<Project, "id" | "name" | "color"> | null;
+    company: Pick<Company, "id" | "name"> | null;
 };
 
 type TaskWithProject = Task & {
@@ -29,6 +30,39 @@ interface CalendarViewProps {
     tasks?: TaskWithProject[];
     renewals?: RenewalWithCompany[];
     onNewEvent?: () => void;
+}
+
+// Couleurs par type de lien
+const EVENT_COLORS = {
+    personal: { bg: "bg-primary/20", text: "text-primary", color: "#6366f1" },
+    project: { bg: "bg-violet-500/20", text: "text-violet-400", color: "#8b5cf6" },
+    company: { bg: "bg-emerald-500/20", text: "text-emerald-400", color: "#10b981" },
+    timeBlock: { bg: "bg-violet-500/20", text: "text-violet-400", color: "#8b5cf6" },
+};
+
+function getEventStyle(event: EventWithRelations) {
+    if (event.isTimeBlock) {
+        return EVENT_COLORS.timeBlock;
+    }
+    if (event.color) {
+        return { bg: "", text: "", color: event.color };
+    }
+    if (event.project?.color) {
+        return { bg: "", text: "", color: event.project.color };
+    }
+    if (event.company) {
+        return EVENT_COLORS.company;
+    }
+    if (event.project) {
+        return EVENT_COLORS.project;
+    }
+    return EVENT_COLORS.personal;
+}
+
+function getEventLabel(event: EventWithRelations): string | null {
+    if (event.company) return event.company.name;
+    if (event.project) return event.project.name;
+    return null;
 }
 
 export function CalendarView({ events, tasks = [], renewals = [], onNewEvent }: CalendarViewProps) {
@@ -80,7 +114,7 @@ export function CalendarView({ events, tasks = [], renewals = [], onNewEvent }: 
                             size="sm"
                             onClick={() => setCurrentDate(new Date())}
                         >
-                            Today
+                            Aujourd&apos;hui
                         </Button>
                         <Button
                             variant="ghost"
@@ -94,24 +128,35 @@ export function CalendarView({ events, tasks = [], renewals = [], onNewEvent }: 
                 </div>
                 <div className="flex items-center gap-3">
                     {/* Legend */}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
                         <span className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
                             <span className="w-2 h-2 rounded bg-primary"></span>
-                            Events
+                            Personnel
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <FolderKanban className="h-3 w-3" />
+                            <span className="w-2 h-2 rounded bg-violet-500"></span>
+                            Projet
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <Building2 className="h-3 w-3" />
+                            <span className="w-2 h-2 rounded bg-emerald-500"></span>
+                            Entreprise
                         </span>
                         <span className="flex items-center gap-1">
                             <span className="w-2 h-2 rounded bg-orange-500"></span>
-                            Tasks
+                            Tâches
                         </span>
                         <span className="flex items-center gap-1">
                             <span className="w-2 h-2 rounded bg-amber-500"></span>
-                            Renewals
+                            Renouvellements
                         </span>
                     </div>
                     {onNewEvent && (
                         <Button onClick={onNewEvent} size="sm">
                             <Plus className="mr-2 h-4 w-4" />
-                            Add Event
+                            Ajouter
                         </Button>
                     )}
                 </div>
@@ -119,7 +164,7 @@ export function CalendarView({ events, tasks = [], renewals = [], onNewEvent }: 
 
             {/* Day Headers */}
             <div className="grid grid-cols-7 border-b border-border/50">
-                {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+                {["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"].map((day) => (
                     <div
                         key={day}
                         className="p-3 text-center text-sm font-medium text-muted-foreground"
@@ -165,22 +210,24 @@ export function CalendarView({ events, tasks = [], renewals = [], onNewEvent }: 
                                 {allItems.slice(0, 3).map((entry, idx) => {
                                     if (entry.type === 'event') {
                                         const event = entry.item as EventWithRelations;
+                                        const style = getEventStyle(event);
+                                        const label = getEventLabel(event);
+                                        const hasCustomColor = !!style.color && !style.bg;
+
                                         return (
                                             <div
                                                 key={`event-${event.id}`}
                                                 className={cn(
                                                     "truncate rounded px-1.5 py-0.5 text-xs font-medium",
-                                                    event.isTimeBlock
-                                                        ? "bg-violet-500/20 text-violet-400"
-                                                        : "bg-primary/20 text-primary"
+                                                    !hasCustomColor && style.bg,
+                                                    !hasCustomColor && style.text
                                                 )}
                                                 style={
-                                                    event.color
-                                                        ? { backgroundColor: `${event.color}20`, color: event.color }
-                                                        : event.project?.color
-                                                            ? { backgroundColor: `${event.project.color}20`, color: event.project.color }
-                                                            : undefined
+                                                    hasCustomColor
+                                                        ? { backgroundColor: `${style.color}20`, color: style.color }
+                                                        : undefined
                                                 }
+                                                title={label ? `${event.title} (${label})` : event.title}
                                             >
                                                 {!event.allDay && (
                                                     <span className="mr-1">

@@ -266,6 +266,8 @@ model Event {
   task      Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
   projectId String?
   project   Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -274,6 +276,7 @@ model Event {
   @@index([startTime])
   @@index([taskId])
   @@index([projectId])
+  @@index([companyId])
 }
 
 model Note {
@@ -355,6 +358,7 @@ model Company {
   clients      Client[]
   invoices     Invoice[]
   expenses     Expense[]
+  events       Event[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

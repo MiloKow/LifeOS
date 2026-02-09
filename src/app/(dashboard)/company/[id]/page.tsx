@@ -4,6 +4,7 @@ import { getCompany } from "@/features/company/actions/company-actions";
 import { getClients, getSubscriptionMetrics } from "@/features/company/actions/client-actions";
 import { getInvoices, getInvoiceSummary } from "@/features/company/actions/invoice-actions";
 import { getExpenses, getExpenseSummary } from "@/features/company/actions/expense-actions";
+import { getEvents } from "@/features/calendar/actions/event-actions";
 import { CompanyDetailClient } from "./company-detail-client";
 
 interface PageProps {
@@ -24,13 +25,14 @@ export default async function CompanyDetailPage({ params }: PageProps) {
         notFound();
     }
 
-    const [clients, invoices, subscriptionMetrics, invoiceSummary, expenses, expenseSummary] = await Promise.all([
+    const [clients, invoices, subscriptionMetrics, invoiceSummary, expenses, expenseSummary, events] = await Promise.all([
         getClients(id),
         getInvoices(id),
         getSubscriptionMetrics(id),
         getInvoiceSummary(id),
         getExpenses(id),
         getExpenseSummary(id),
+        getEvents({ companyId: id }),
     ]);
 
     return (
@@ -42,6 +44,7 @@ export default async function CompanyDetailPage({ params }: PageProps) {
             invoiceSummary={invoiceSummary}
             expenses={expenses}
             expenseSummary={expenseSummary}
+            events={events}
         />
     );
 }

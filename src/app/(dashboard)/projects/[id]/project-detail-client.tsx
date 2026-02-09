@@ -32,7 +32,7 @@ import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import {
     ArrowLeft,
-    Calendar,
+    Calendar as CalendarIcon,
     CheckCircle2,
     Circle,
     Clock,
@@ -48,7 +48,9 @@ import { useRouter } from "next/navigation";
 import { createTask } from "@/features/tasks/actions/task-actions";
 import { TaskNoteButton } from "@/features/tasks/components/task-note-button";
 import { updateProject, deleteProject } from "@/features/projects/actions/project-actions";
-import type { Project, Task, Milestone, Tag, Note, TimeEntry, TaskStatus, Priority, ProjectStatus } from "@prisma/client";
+import type { Project, Task, Milestone, Tag, Note, TimeEntry, Event, Company, TaskStatus, Priority, ProjectStatus } from "@prisma/client";
+import { EventForm } from "@/features/calendar/components/event-form";
+import { deleteEvent } from "@/features/calendar/actions/event-actions";
 
 type ProjectWithDetails = Project & {
     tasks: Task[];
@@ -61,8 +63,15 @@ type ProjectWithDetails = Project & {
     completedTasks: number;
 };
 
+type EventWithRelations = Event & {
+    task: { id: string; title: string; status: string } | null;
+    project: { id: string; name: string; color: string | null } | null;
+    company: { id: string; name: string } | null;
+};
+
 interface ProjectDetailClientProps {
     project: ProjectWithDetails;
+    events: EventWithRelations[];
 }
 
 // Utility to strip HTML tags for preview
@@ -93,7 +102,7 @@ const taskStatusIcons: Record<TaskStatus, React.ReactNode> = {
     BLOCKED: <Circle className="h-4 w-4 text-red-500" />,
 };
 
-export function ProjectDetailClient({ project }: ProjectDetailClientProps) {
+export function ProjectDetailClient({ project, events }: ProjectDetailClientProps) {
     const router = useRouter();
     const totalMinutes = project.timeEntries.reduce((acc, e) => acc + (e.duration || 0), 0);
     const totalHours = Math.round(totalMinutes / 60 * 10) / 10;
@@ -105,6 +114,9 @@ export function ProjectDetailClient({ project }: ProjectDetailClientProps) {
     const [taskPriority, setTaskPriority] = useState<Priority>("MEDIUM");
     const [taskDueDate, setTaskDueDate] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Event form state
+    const [eventFormOpen, setEventFormOpen] = useState(false);
 
     // Edit Project dialog state
     const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -145,6 +157,11 @@ export function ProjectDetailClient({ project }: ProjectDetailClientProps) {
 
         setEditDialogOpen(false);
         setIsSubmitting(false);
+        router.refresh();
+    }
+
+    async function handleDeleteEvent(eventId: string) {
+        await deleteEvent(eventId);
         router.refresh();
     }
 
@@ -249,7 +266,7 @@ export function ProjectDetailClient({ project }: ProjectDetailClientProps) {
 
                 <div className="rounded-xl border border-border/50 bg-card/50 p-4">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                        <Calendar className="h-4 w-4" />
+                        <CalendarIcon className="h-4 w-4" />
                         Start Date
                     </div>
                     <p className="mt-2 text-lg font-medium">
@@ -261,7 +278,7 @@ export function ProjectDetailClient({ project }: ProjectDetailClientProps) {
 
                 <div className="rounded-xl border border-border/50 bg-card/50 p-4">
                     <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                        <Calendar className="h-4 w-4" />
+                        <CalendarIcon className="h-4 w-4" />
                         Due Date
                     </div>
                     <p className="mt-2 text-lg font-medium">
@@ -320,6 +337,78 @@ export function ProjectDetailClient({ project }: ProjectDetailClientProps) {
                                 </span>
                             </Link>
                         ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Events */}
+            <div className="rounded-xl border border-border/50 bg-card/50 p-6">
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-lg font-semibold flex items-center gap-2">
+                        <CalendarIcon className="h-5 w-5 text-violet-500" />
+                        Événements ({events.length})
+                    </h2>
+                    <Button size="sm" onClick={() => setEventFormOpen(true)}>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Ajouter
+                    </Button>
+                </div>
+
+                {events.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                        <CalendarIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>Aucun événement lié à ce projet</p>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-3"
+                            onClick={() => setEventFormOpen(true)}
+                        >
+                            <Plus className="mr-2 h-4 w-4" />
+                            Ajouter un événement
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        {events.map((event) => {
+                            const isPast = new Date(event.endTime) < new Date();
+                            return (
+                                <div
+                                    key={event.id}
+                                    className={cn(
+                                        "flex items-center gap-3 p-3 rounded-lg border border-border/50 transition-colors",
+                                        isPast && "opacity-60"
+                                    )}
+                                >
+                                    <div
+                                        className="w-1.5 h-8 rounded-full shrink-0"
+                                        style={{ backgroundColor: project.color || "#8b5cf6" }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium truncate">{event.title}</p>
+                                        <p className="text-xs text-muted-foreground">
+                                            {event.allDay
+                                                ? format(new Date(event.startTime), "dd/MM/yyyy")
+                                                : `${format(new Date(event.startTime), "dd/MM/yyyy HH:mm")} - ${format(new Date(event.endTime), "HH:mm")}`
+                                            }
+                                        </p>
+                                    </div>
+                                    {event.allDay && (
+                                        <span className="text-xs bg-muted px-2 py-0.5 rounded text-muted-foreground">
+                                            Journée
+                                        </span>
+                                    )}
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8 text-destructive hover:text-destructive shrink-0"
+                                        onClick={() => handleDeleteEvent(event.id)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            );
+                        })}
                     </div>
                 )}
             </div>
@@ -442,6 +531,14 @@ export function ProjectDetailClient({ project }: ProjectDetailClientProps) {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Event Form Dialog */}
+            <EventForm
+                open={eventFormOpen}
+                onOpenChange={setEventFormOpen}
+                defaultLinkType="project"
+                defaultProjectId={project.id}
+            />
 
             {/* Edit Project Dialog */}
             <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>

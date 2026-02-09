@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { CalendarView } from "@/features/calendar/components/calendar-view";
 import { EventForm } from "@/features/calendar/components/event-form";
-import type { Event, Task, Project, Expense } from "@prisma/client";
+import type { Event, Task, Project, Company } from "@prisma/client";
 
 type EventWithRelations = Event & {
     task: Pick<Task, "id" | "title" | "status"> | null;
     project: Pick<Project, "id" | "name" | "color"> | null;
+    company: Pick<Company, "id" | "name"> | null;
 };
 
 type TaskWithProject = Task & {

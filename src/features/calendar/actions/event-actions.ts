@@ -13,7 +13,8 @@ export type EventInput = {
     isTimeBlock?: boolean;
     color?: string;
     taskId?: string;
-    projectId?: string;
+    projectId?: string | null;
+    companyId?: string | null;
 };
 
 export async function createEvent(data: EventInput) {
@@ -25,13 +26,24 @@ export async function createEvent(data: EventInput) {
     try {
         const event = await db.event.create({
             data: {
-                ...data,
+                title: data.title,
+                description: data.description,
+                startTime: data.startTime,
+                endTime: data.endTime,
+                allDay: data.allDay,
+                isTimeBlock: data.isTimeBlock,
+                color: data.color,
+                taskId: data.taskId,
+                projectId: data.projectId || null,
+                companyId: data.companyId || null,
                 userId: session.user.id,
             },
         });
 
         revalidatePath("/calendar");
         revalidatePath("/dashboard");
+        if (data.projectId) revalidatePath(`/projects/${data.projectId}`);
+        if (data.companyId) revalidatePath(`/company/${data.companyId}`);
         return { success: true, event };
     } catch (error) {
         console.error("Failed to create event:", error);
@@ -48,7 +60,18 @@ export async function updateEvent(eventId: string, data: Partial<EventInput>) {
     try {
         const event = await db.event.update({
             where: { id: eventId, userId: session.user.id },
-            data,
+            data: {
+                ...(data.title !== undefined && { title: data.title }),
+                ...(data.description !== undefined && { description: data.description }),
+                ...(data.startTime !== undefined && { startTime: data.startTime }),
+                ...(data.endTime !== undefined && { endTime: data.endTime }),
+                ...(data.allDay !== undefined && { allDay: data.allDay }),
+                ...(data.isTimeBlock !== undefined && { isTimeBlock: data.isTimeBlock }),
+                ...(data.color !== undefined && { color: data.color }),
+                ...(data.taskId !== undefined && { taskId: data.taskId }),
+                ...(data.projectId !== undefined && { projectId: data.projectId || null }),
+                ...(data.companyId !== undefined && { companyId: data.companyId || null }),
+            },
         });
 
         revalidatePath("/calendar");
@@ -83,6 +106,8 @@ export async function deleteEvent(eventId: string) {
 export async function getEvents(options?: {
     startDate?: Date;
     endDate?: Date;
+    projectId?: string;
+    companyId?: string;
 }) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -98,6 +123,14 @@ export async function getEvents(options?: {
             gte: options.startDate,
             lte: options.endDate,
         };
+    }
+
+    if (options?.projectId) {
+        where.projectId = options.projectId;
+    }
+
+    if (options?.companyId) {
+        where.companyId = options.companyId;
     }
 
     try {
@@ -118,6 +151,12 @@ export async function getEvents(options?: {
                         color: true,
                     },
                 },
+                company: {
+                    select: {
+                        id: true,
+                        name: true,
+                    },
+                },
             },
             orderBy: { startTime: "asc" },
         });
@@ -126,5 +165,33 @@ export async function getEvents(options?: {
     } catch (error) {
         console.error("Failed to get events:", error);
         return [];
+    }
+}
+
+// Helper to get available projects and companies for the event form
+export async function getEventLinkOptions() {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { projects: [], companies: [] };
+    }
+
+    try {
+        const [projects, companies] = await Promise.all([
+            db.project.findMany({
+                where: { userId: session.user.id, deletedAt: null },
+                select: { id: true, name: true, color: true },
+                orderBy: { name: "asc" },
+            }),
+            db.company.findMany({
+                where: { userId: session.user.id },
+                select: { id: true, name: true },
+                orderBy: { name: "asc" },
+            }),
+        ]);
+
+        return { projects, companies };
+    } catch (error) {
+        console.error("Failed to get event link options:", error);
+        return { projects: [], companies: [] };
     }
 }

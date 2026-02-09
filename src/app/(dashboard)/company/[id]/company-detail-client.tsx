@@ -59,12 +59,15 @@ import {
     AlertCircle,
     Wallet,
     CalendarClock,
+    Calendar,
 } from "lucide-react";
 import { updateCompany, deleteCompany } from "@/features/company/actions/company-actions";
 import { createClient, type ClientInput } from "@/features/company/actions/client-actions";
 import { createInvoice, updateInvoice, markInvoiceAsPaid, type InvoiceInput } from "@/features/company/actions/invoice-actions";
 import { createExpense, deleteExpense, type ExpenseInput } from "@/features/company/actions/expense-actions";
-import type { Company, Project, Transaction, Client, Invoice, Expense, ExpenseType, SubscriptionFrequency } from "@prisma/client";
+import type { Company, Project, Transaction, Client, Invoice, Expense, Event, ExpenseType, SubscriptionFrequency } from "@prisma/client";
+import { EventForm } from "@/features/calendar/components/event-form";
+import { deleteEvent } from "@/features/calendar/actions/event-actions";
 
 // Types
 type CompanyWithDetails = Company & {
@@ -82,6 +85,12 @@ type ClientWithCount = Client & {
 type InvoiceWithClient = Invoice & {
     client: { id: string; name: string; email: string | null };
     _count: { items: number };
+};
+
+type EventWithRelations = Event & {
+    task: { id: string; title: string; status: string } | null;
+    project: { id: string; name: string; color: string | null } | null;
+    company: { id: string; name: string } | null;
 };
 
 interface CompanyDetailClientProps {
@@ -108,6 +117,7 @@ interface CompanyDetailClientProps {
         monthlySubscriptions: number;
         yearlySubscriptions: number;
     };
+    events: EventWithRelations[];
 }
 
 export function CompanyDetailClient({
@@ -118,6 +128,7 @@ export function CompanyDetailClient({
     invoiceSummary,
     expenses,
     expenseSummary,
+    events,
 }: CompanyDetailClientProps) {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("overview");
@@ -142,6 +153,9 @@ export function CompanyDetailClient({
     const [selectedClientId, setSelectedClientId] = useState("");
     const [invoiceDueDate, setInvoiceDueDate] = useState("");
     const [invoiceItems, setInvoiceItems] = useState([{ description: "", quantity: 1, unitPrice: 0 }]);
+
+    // Event state
+    const [isEventFormOpen, setIsEventFormOpen] = useState(false);
 
     // Expense state
     const [isExpenseDialogOpen, setIsExpenseDialogOpen] = useState(false);
@@ -301,6 +315,13 @@ export function CompanyDetailClient({
         }
     }
 
+    async function handleDeleteEvent(eventId: string) {
+        const result = await deleteEvent(eventId);
+        if (result.success) {
+            router.refresh();
+        }
+    }
+
     async function handleDeleteExpense(expenseId: string) {
         const result = await deleteExpense(expenseId);
         if (result.success) {
@@ -385,6 +406,10 @@ export function CompanyDetailClient({
                     <TabsTrigger value="expenses" className="flex items-center gap-2">
                         <Wallet className="h-4 w-4" />
                         Dépenses ({expenses.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="events" className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        Événements ({events.length})
                     </TabsTrigger>
                     <TabsTrigger value="projects" className="flex items-center gap-2">
                         <Folder className="h-4 w-4" />
@@ -831,6 +856,84 @@ export function CompanyDetailClient({
                     )}
                 </TabsContent>
 
+                {/* Events Tab */}
+                <TabsContent value="events" className="space-y-6">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xl font-semibold">Événements</h2>
+                        <Button onClick={() => setIsEventFormOpen(true)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Ajouter un événement
+                        </Button>
+                    </div>
+
+                    {events.length === 0 ? (
+                        <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
+                            <CardContent className="flex flex-col items-center justify-center py-10">
+                                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                                <h3 className="text-lg font-medium">Aucun événement</h3>
+                                <p className="text-muted-foreground text-sm mt-1">
+                                    Ajoutez des événements liés à cette entreprise
+                                </p>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-4"
+                                    onClick={() => setIsEventFormOpen(true)}
+                                >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Ajouter votre premier événement
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <div className="space-y-3">
+                            {events.map((event) => {
+                                const isPast = new Date(event.endTime) < new Date();
+                                return (
+                                    <Card key={event.id} className={cn(
+                                        "border-border/50 bg-card/50 backdrop-blur-sm",
+                                        isPast && "opacity-60"
+                                    )}>
+                                        <CardContent className="flex items-center justify-between py-4">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-2 h-10 rounded-full bg-emerald-500" />
+                                                <div>
+                                                    <p className="font-medium">{event.title}</p>
+                                                    <p className="text-sm text-muted-foreground">
+                                                        {event.allDay
+                                                            ? format(new Date(event.startTime), "dd/MM/yyyy")
+                                                            : `${format(new Date(event.startTime), "dd/MM/yyyy HH:mm")} - ${format(new Date(event.endTime), "HH:mm")}`
+                                                        }
+                                                    </p>
+                                                    {event.description && (
+                                                        <p className="text-xs text-muted-foreground mt-1">{event.description}</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                {event.allDay && (
+                                                    <Badge variant="secondary">Journée entière</Badge>
+                                                )}
+                                                {event.isTimeBlock && (
+                                                    <Badge variant="secondary">Bloc de temps</Badge>
+                                                )}
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive hover:text-destructive"
+                                                    onClick={() => handleDeleteEvent(event.id)}
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    )}
+                </TabsContent>
+
                 {/* Projects Tab */}
                 <TabsContent value="projects" className="space-y-6">
                     <div className="flex justify-between items-center">
@@ -1145,6 +1248,14 @@ export function CompanyDetailClient({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Event Form Dialog */}
+            <EventForm
+                open={isEventFormOpen}
+                onOpenChange={setIsEventFormOpen}
+                defaultLinkType="company"
+                defaultCompanyId={company.id}
+            />
 
             {/* Expense Dialog */}
             <Dialog open={isExpenseDialogOpen} onOpenChange={setIsExpenseDialogOpen}>
