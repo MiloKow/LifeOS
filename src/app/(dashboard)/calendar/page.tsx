@@ -2,9 +2,9 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getEvents } from "@/features/calendar/actions/event-actions";
 import { getTasksForCalendar } from "@/features/tasks/actions/task-actions";
-import { getUpcomingRenewals } from "@/features/company/actions/expense-actions";
+import { getUpcomingRenewals, getAllRenewalsForCalendar } from "@/features/company/actions/expense-actions";
 import { CalendarPageClient } from "./calendar-page-client";
-import { startOfMonth, endOfMonth, addMonths, subMonths, differenceInDays } from "date-fns";
+import { startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 
 export default async function CalendarPage() {
     const session = await auth();
@@ -18,13 +18,10 @@ export default async function CalendarPage() {
     const startDate = startOfMonth(subMonths(now, 1));
     const endDate = endOfMonth(addMonths(now, 2));
 
-    // Get renewals for 90 days to cover the calendar range
-    const daysRange = differenceInDays(endDate, now) + 30;
-
     const [events, tasks, renewals] = await Promise.all([
         getEvents({ startDate, endDate }),
         getTasksForCalendar({ startDate, endDate }),
-        getUpcomingRenewals(daysRange),
+        getAllRenewalsForCalendar(),
     ]);
 
     return (

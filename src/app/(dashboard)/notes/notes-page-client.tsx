@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -59,6 +60,7 @@ function stripHtml(html: string) {
 }
 
 export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesPageClientProps) {
+    const router = useRouter();
     const [selectedNote, setSelectedNote] = useState<NoteWithRelations | null>(
         initialNoteId ? notes.find(n => n.id === initialNoteId) || null : null
     );
@@ -143,6 +145,7 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
 
     async function handleDeleteNote(noteId: string) {
         await deleteNote(noteId);
+        router.refresh();
         if (selectedNote?.id === noteId) {
             setSelectedNote(null);
             setShowEditor(false);
@@ -151,6 +154,7 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
 
     async function handleDeleteFile(fileId: string) {
         await deleteNoteFile(fileId);
+        router.refresh();
         if (selectedFile?.id === fileId) {
             setSelectedFile(null);
         }
@@ -171,6 +175,7 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
             await createFolder(folderName.trim());
         }
 
+        router.refresh();
         setFolderDialogOpen(false);
         setFolderName("");
         setEditingFolder(null);
@@ -181,14 +186,17 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
             setSelectedFolderId(null);
         }
         await deleteFolder(folderId);
+        router.refresh();
     }
 
     async function handleMoveNote(noteId: string, folderId: string | null) {
         await moveNoteToFolder(noteId, folderId);
+        router.refresh();
     }
 
     async function handleMoveFile(fileId: string, folderId: string | null) {
         await moveFileToFolder(fileId, folderId);
+        router.refresh();
     }
 
     async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -216,6 +224,7 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
                     size: result.size,
                     folderId: selectedFolderId,
                 });
+                router.refresh();
             } else {
                 alert(result.error || "Upload failed");
             }
@@ -232,6 +241,7 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
 
     function handleNoteSaved(note: Note) {
         setSelectedNote(note as NoteWithRelations);
+        router.refresh();
     }
 
     // Drag and Drop Handlers

@@ -177,6 +177,82 @@ export async function getUpcomingRenewals(days: number = 30) {
     }
 }
 
+// Generate all recurring renewal dates until end of year for calendar
+export async function getAllRenewalsForCalendar() {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return [];
+    }
+
+    try {
+        const subscriptions = await db.expense.findMany({
+            where: {
+                company: { userId: session.user.id },
+                type: "SUBSCRIPTION",
+                renewalDate: { not: null },
+            },
+            include: {
+                company: {
+                    select: { id: true, name: true },
+                },
+            },
+        });
+
+        const now = new Date();
+        const endOfYear = new Date(now.getFullYear(), 11, 31); // December 31st
+
+        type RenewalEvent = {
+            id: string;
+            name: string;
+            amount: typeof subscriptions[0]["amount"];
+            renewalDate: Date;
+            frequency: typeof subscriptions[0]["frequency"];
+            company: { id: string; name: string };
+        };
+
+        const allRenewals: RenewalEvent[] = [];
+
+        for (const sub of subscriptions) {
+            if (!sub.renewalDate || !sub.frequency) continue;
+
+            let currentDate = new Date(sub.renewalDate);
+
+            // If the renewal date is in the past, calculate the next occurrence
+            while (currentDate < now) {
+                if (sub.frequency === "MONTHLY") {
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                } else {
+                    currentDate.setFullYear(currentDate.getFullYear() + 1);
+                }
+            }
+
+            // Generate all future occurrences until end of year
+            while (currentDate <= endOfYear) {
+                allRenewals.push({
+                    id: `${sub.id}-${currentDate.toISOString()}`,
+                    name: sub.name,
+                    amount: sub.amount,
+                    renewalDate: new Date(currentDate),
+                    frequency: sub.frequency,
+                    company: sub.company,
+                });
+
+                if (sub.frequency === "MONTHLY") {
+                    currentDate.setMonth(currentDate.getMonth() + 1);
+                } else {
+                    currentDate.setFullYear(currentDate.getFullYear() + 1);
+                }
+            }
+        }
+
+        return allRenewals.sort((a, b) => a.renewalDate.getTime() - b.renewalDate.getTime());
+    } catch (error) {
+        console.error("Failed to get all renewals for calendar:", error);
+        return [];
+    }
+}
+
+
 export async function getExpenseSummary(companyId: string) {
     const session = await auth();
     if (!session?.user?.id) {

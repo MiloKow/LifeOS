@@ -14,7 +14,11 @@ type TaskWithProject = Task & {
     project: Pick<Project, "id" | "name" | "color"> | null;
 };
 
-type RenewalWithCompany = Expense & {
+type RenewalWithCompany = {
+    id: string;
+    name: string;
+    amount: any;
+    renewalDate: Date | null;
     company: { id: string; name: string };
 };
 

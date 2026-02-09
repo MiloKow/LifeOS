@@ -79,20 +79,45 @@ export async function getFolders() {
     }
 
     try {
-        const folders = await db.noteFolder.findMany({
+        // Fetch folders with file counts (files are hard deleted, so count is accurate)
+        const foldersPromise = db.noteFolder.findMany({
             where: { userId: session.user.id },
             include: {
                 _count: {
                     select: {
-                        notes: true,
-                        files: true
+                        files: true,
                     },
                 },
             },
             orderBy: { name: "asc" },
         });
 
-        return folders;
+        // Fetch active note counts grouped by folder (excluding soft-deleted notes)
+        const activeNotesCountPromise = db.note.groupBy({
+            by: ['folderId'],
+            where: {
+                userId: session.user.id,
+                deletedAt: null,
+                folderId: { not: null }
+            },
+            _count: {
+                _all: true
+            }
+        });
+
+        const [folders, noteCounts] = await Promise.all([foldersPromise, activeNotesCountPromise]);
+
+        // Merge the counts
+        return folders.map(folder => {
+            const noteCount = noteCounts.find(c => c.folderId === folder.id)?._count._all || 0;
+            return {
+                ...folder,
+                _count: {
+                    files: folder._count.files,
+                    notes: noteCount
+                }
+            };
+        });
     } catch (error) {
         console.error("Failed to get folders:", error);
         return [];

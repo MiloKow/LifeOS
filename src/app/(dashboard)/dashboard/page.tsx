@@ -4,11 +4,13 @@ import { TodayTasks } from "@/features/dashboard/components/today-tasks";
 import { UpcomingDeadlines } from "@/features/dashboard/components/upcoming-deadlines";
 import { ActiveProjects } from "@/features/dashboard/components/active-projects";
 import { CalendarPreview } from "@/features/dashboard/components/calendar-preview";
+import { UpcomingRenewals } from "@/features/dashboard/components/upcoming-renewals";
 import { format, startOfDay, endOfDay, startOfWeek, endOfWeek, addDays } from "date-fns";
 import { getTasks } from "@/features/tasks/actions/task-actions";
 import { getProjects } from "@/features/projects/actions/project-actions";
 import { getEvents } from "@/features/calendar/actions/event-actions";
 import { getTimeEntries } from "@/features/company/actions/company-actions";
+import { getUpcomingRenewals } from "@/features/company/actions/expense-actions";
 
 export default async function DashboardPage() {
     const session = await auth();
@@ -27,11 +29,12 @@ export default async function DashboardPage() {
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
     const nextWeekEnd = addDays(weekEnd, 7);
 
-    const [todayTasks, allProjects, weekEvents, timeEntries] = await Promise.all([
+    const [todayTasks, allProjects, weekEvents, timeEntries, upcomingRenewals] = await Promise.all([
         getTasks({ today: true }),
         getProjects(),
         getEvents({ startDate: weekStart, endDate: weekEnd }),
         getTimeEntries({ startDate: weekStart, endDate: weekEnd }),
+        getUpcomingRenewals(30),
     ]);
 
     // Calculate stats
@@ -70,6 +73,7 @@ export default async function DashboardPage() {
                     title="Today's Tasks"
                     value={String(todayTasks.length)}
                     description={`${completedTodayTasks} completed`}
+                    trend={completedTodayTasks > 0 ? "Keep it up!" : undefined}
                 />
                 <StatCard
                     title="Active Projects"
@@ -89,14 +93,22 @@ export default async function DashboardPage() {
             </div>
 
             {/* Main Grid */}
-            <div className="grid gap-6 lg:grid-cols-2">
-                <TodayTasks tasks={todayTasks} />
-                <UpcomingDeadlines deadlines={upcomingDeadlines} />
-            </div>
+            <div className="grid gap-6 lg:grid-cols-3">
+                <div className="lg:col-span-2 space-y-6">
+                    <div className="grid gap-6 md:grid-cols-2">
+                        <TodayTasks tasks={todayTasks} />
+                        <UpcomingDeadlines deadlines={upcomingDeadlines} />
+                    </div>
+                    <div className="grid gap-6 md:grid-cols-2">
+                        <ActiveProjects projects={activeProjects} />
+                        <CalendarPreview events={weekEvents} />
+                    </div>
+                </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
-                <ActiveProjects projects={activeProjects} />
-                <CalendarPreview events={weekEvents} />
+                {/* Right Sidebar */}
+                <div className="space-y-6">
+                    <UpcomingRenewals renewals={upcomingRenewals} />
+                </div>
             </div>
         </div>
     );
