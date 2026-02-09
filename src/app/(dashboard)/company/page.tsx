@@ -21,7 +21,7 @@ export default async function CompanyPage() {
     const [timeEntries, financialSummary, upcomingRenewals] = await Promise.all([
         getTimeEntries({ startDate: weekStart, endDate: weekEnd }),
         getFinancialSummary(),
-        getUpcomingRenewals(30), // Get renewals in next 30 days
+        getUpcomingRenewals(30, "company"), // Get only company renewals
     ]);
 
     // Calculate total hours this week

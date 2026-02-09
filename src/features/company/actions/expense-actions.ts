@@ -211,7 +211,7 @@ export async function getAllSubscriptions() {
     }
 }
 
-export async function getUpcomingRenewals(days: number = 30) {
+export async function getUpcomingRenewals(days: number = 30, filter: "all" | "company" | "personal" = "all") {
     const session = await auth();
     if (!session?.user?.id) {
         return [];
@@ -230,6 +230,8 @@ export async function getUpcomingRenewals(days: number = 30) {
                     gte: now,
                     lte: futureDate,
                 },
+                ...(filter === "company" ? { companyId: { not: null } } : {}),
+                ...(filter === "personal" ? { companyId: null } : {}),
             },
             include: {
                 company: {
