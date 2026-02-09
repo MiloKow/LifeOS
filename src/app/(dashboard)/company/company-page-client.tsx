@@ -49,7 +49,7 @@ interface CompanyPageClientProps {
         expenses: number;
         balance: number;
     };
-    upcomingRenewals: (Expense & { company: { id: string; name: string } })[];
+    upcomingRenewals: (Expense & { company: { id: string; name: string } | null })[];
 }
 
 export function CompanyPageClient({
@@ -175,15 +175,20 @@ export function CompanyPageClient({
                                     (new Date(renewal.renewalDate!).getTime() - new Date().getTime()) /
                                     (1000 * 60 * 60 * 24)
                                 );
+                                const href = renewal.company
+                                    ? `/company/${renewal.company.id}`
+                                    : "/calendar";
                                 return (
                                     <Link
                                         key={renewal.id}
-                                        href={`/company/${renewal.company.id}`}
+                                        href={href}
                                         className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-card/50 p-3 hover:border-amber-500 transition-colors"
                                     >
                                         <div>
                                             <p className="font-medium text-sm">{renewal.name}</p>
-                                            <p className="text-xs text-muted-foreground">{renewal.company.name}</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {renewal.company ? renewal.company.name : "Personnel"}
+                                            </p>
                                         </div>
                                         <div className="text-right">
                                             <p className="font-bold text-amber-500">

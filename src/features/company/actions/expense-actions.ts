@@ -15,6 +15,7 @@ export type ExpenseInput = {
     renewalDate?: Date;
 };
 
+// Create expense linked to a company
 export async function createExpense(companyId: string, data: ExpenseInput) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -40,16 +41,50 @@ export async function createExpense(companyId: string, data: ExpenseInput) {
                 date: data.date || new Date(),
                 frequency: data.type === "SUBSCRIPTION" ? data.frequency : null,
                 renewalDate: data.type === "SUBSCRIPTION" ? data.renewalDate : null,
+                userId: session.user.id,
                 companyId,
             },
         });
 
         revalidatePath(`/company/${companyId}`);
         revalidatePath("/company");
+        revalidatePath("/calendar");
+        revalidatePath("/dashboard");
         return { success: true, expense };
     } catch (error) {
         console.error("Failed to create expense:", error);
         return { error: "Failed to create expense" };
+    }
+}
+
+// Create personal subscription (no company)
+export async function createPersonalSubscription(data: ExpenseInput) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { error: "Unauthorized" };
+    }
+
+    try {
+        const expense = await db.expense.create({
+            data: {
+                name: data.name,
+                description: data.description,
+                amount: data.amount,
+                type: "SUBSCRIPTION",
+                date: data.date || new Date(),
+                frequency: data.frequency || "MONTHLY",
+                renewalDate: data.renewalDate,
+                userId: session.user.id,
+                companyId: null,
+            },
+        });
+
+        revalidatePath("/calendar");
+        revalidatePath("/dashboard");
+        return { success: true, expense };
+    } catch (error) {
+        console.error("Failed to create personal subscription:", error);
+        return { error: "Failed to create subscription" };
     }
 }
 
@@ -61,11 +96,10 @@ export async function updateExpense(expenseId: string, data: Partial<ExpenseInpu
 
     // Verify expense ownership
     const existingExpense = await db.expense.findFirst({
-        where: { id: expenseId },
-        include: { company: true },
+        where: { id: expenseId, userId: session.user.id },
     });
 
-    if (!existingExpense || existingExpense.company.userId !== session.user.id) {
+    if (!existingExpense) {
         return { error: "Expense not found" };
     }
 
@@ -75,8 +109,12 @@ export async function updateExpense(expenseId: string, data: Partial<ExpenseInpu
             data,
         });
 
-        revalidatePath(`/company/${existingExpense.companyId}`);
-        revalidatePath("/company");
+        if (existingExpense.companyId) {
+            revalidatePath(`/company/${existingExpense.companyId}`);
+            revalidatePath("/company");
+        }
+        revalidatePath("/calendar");
+        revalidatePath("/dashboard");
         return { success: true, expense };
     } catch (error) {
         console.error("Failed to update expense:", error);
@@ -90,13 +128,12 @@ export async function deleteExpense(expenseId: string) {
         return { error: "Unauthorized" };
     }
 
-    // Verify expense ownership
+    // Verify expense ownership via userId
     const existingExpense = await db.expense.findFirst({
-        where: { id: expenseId },
-        include: { company: true },
+        where: { id: expenseId, userId: session.user.id },
     });
 
-    if (!existingExpense || existingExpense.company.userId !== session.user.id) {
+    if (!existingExpense) {
         return { error: "Expense not found" };
     }
 
@@ -105,8 +142,12 @@ export async function deleteExpense(expenseId: string) {
             where: { id: expenseId },
         });
 
-        revalidatePath(`/company/${existingExpense.companyId}`);
-        revalidatePath("/company");
+        if (existingExpense.companyId) {
+            revalidatePath(`/company/${existingExpense.companyId}`);
+            revalidatePath("/company");
+        }
+        revalidatePath("/calendar");
+        revalidatePath("/dashboard");
         return { success: true };
     } catch (error) {
         console.error("Failed to delete expense:", error);
@@ -142,6 +183,34 @@ export async function getExpenses(companyId: string) {
     }
 }
 
+// Get all subscriptions for the current user (personal + company)
+export async function getAllSubscriptions() {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return [];
+    }
+
+    try {
+        const subscriptions = await db.expense.findMany({
+            where: {
+                userId: session.user.id,
+                type: "SUBSCRIPTION",
+            },
+            include: {
+                company: {
+                    select: { id: true, name: true },
+                },
+            },
+            orderBy: [{ renewalDate: "asc" }, { createdAt: "desc" }],
+        });
+
+        return subscriptions;
+    } catch (error) {
+        console.error("Failed to get all subscriptions:", error);
+        return [];
+    }
+}
+
 export async function getUpcomingRenewals(days: number = 30) {
     const session = await auth();
     if (!session?.user?.id) {
@@ -155,7 +224,7 @@ export async function getUpcomingRenewals(days: number = 30) {
     try {
         const renewals = await db.expense.findMany({
             where: {
-                company: { userId: session.user.id },
+                userId: session.user.id,
                 type: "SUBSCRIPTION",
                 renewalDate: {
                     gte: now,
@@ -187,7 +256,7 @@ export async function getAllRenewalsForCalendar() {
     try {
         const subscriptions = await db.expense.findMany({
             where: {
-                company: { userId: session.user.id },
+                userId: session.user.id,
                 type: "SUBSCRIPTION",
                 renewalDate: { not: null },
             },
@@ -207,7 +276,7 @@ export async function getAllRenewalsForCalendar() {
             amount: typeof subscriptions[0]["amount"];
             renewalDate: Date;
             frequency: typeof subscriptions[0]["frequency"];
-            company: { id: string; name: string };
+            company: { id: string; name: string } | null;
         };
 
         const allRenewals: RenewalEvent[] = [];
@@ -263,7 +332,7 @@ export async function getExpenseSummary(companyId: string) {
         const expenses = await db.expense.findMany({
             where: {
                 companyId,
-                company: { userId: session.user.id },
+                userId: session.user.id,
             },
         });
 

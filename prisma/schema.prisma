@@ -111,6 +111,7 @@ model User {
   companies    Company[]
   timeEntries  TimeEntry[]
   transactions Transaction[]
+  expenses     Expense[]
   notifications Notification[]
 }
 
@@ -493,12 +494,16 @@ model Expense {
   frequency   SubscriptionFrequency?
   renewalDate DateTime?
 
-  companyId String
-  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  // Relations
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId])
   @@index([companyId])
   @@index([renewalDate])
   @@index([type])

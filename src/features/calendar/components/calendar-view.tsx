@@ -22,7 +22,7 @@ type RenewalWithCompany = {
     name: string;
     amount: any;
     renewalDate: Date | null;
-    company: { id: string; name: string };
+    company: { id: string; name: string } | null;
 };
 
 interface CalendarViewProps {
@@ -30,6 +30,7 @@ interface CalendarViewProps {
     tasks?: TaskWithProject[];
     renewals?: RenewalWithCompany[];
     onNewEvent?: () => void;
+    onNewSubscription?: () => void;
 }
 
 // Couleurs par type de lien
@@ -65,7 +66,7 @@ function getEventLabel(event: EventWithRelations): string | null {
     return null;
 }
 
-export function CalendarView({ events, tasks = [], renewals = [], onNewEvent }: CalendarViewProps) {
+export function CalendarView({ events, tasks = [], renewals = [], onNewEvent, onNewSubscription }: CalendarViewProps) {
     const [currentDate, setCurrentDate] = useState(new Date());
 
     const monthStart = startOfMonth(currentDate);
@@ -153,12 +154,20 @@ export function CalendarView({ events, tasks = [], renewals = [], onNewEvent }: 
                             Renouvellements
                         </span>
                     </div>
-                    {onNewEvent && (
-                        <Button onClick={onNewEvent} size="sm">
-                            <Plus className="mr-2 h-4 w-4" />
-                            Ajouter
-                        </Button>
-                    )}
+                    <div className="flex items-center gap-2">
+                        {onNewSubscription && (
+                            <Button onClick={onNewSubscription} size="sm" variant="outline" className="text-amber-500 border-amber-500/30 hover:bg-amber-500/10">
+                                <RefreshCw className="mr-2 h-4 w-4" />
+                                Abonnement
+                            </Button>
+                        )}
+                        {onNewEvent && (
+                            <Button onClick={onNewEvent} size="sm">
+                                <Plus className="mr-2 h-4 w-4" />
+                                Événement
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </div>
 

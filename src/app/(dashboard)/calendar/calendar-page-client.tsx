@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { CalendarView } from "@/features/calendar/components/calendar-view";
 import { EventForm } from "@/features/calendar/components/event-form";
+import { SubscriptionForm } from "@/features/calendar/components/subscription-form";
 import type { Event, Task, Project, Company } from "@prisma/client";
 
 type EventWithRelations = Event & {
@@ -20,7 +21,7 @@ type RenewalWithCompany = {
     name: string;
     amount: any;
     renewalDate: Date | null;
-    company: { id: string; name: string };
+    company: { id: string; name: string } | null;
 };
 
 interface CalendarPageClientProps {
@@ -31,11 +32,19 @@ interface CalendarPageClientProps {
 
 export function CalendarPageClient({ events, tasks, renewals }: CalendarPageClientProps) {
     const [showEventForm, setShowEventForm] = useState(false);
+    const [showSubscriptionForm, setShowSubscriptionForm] = useState(false);
 
     return (
         <>
-            <CalendarView events={events} tasks={tasks} renewals={renewals} onNewEvent={() => setShowEventForm(true)} />
+            <CalendarView
+                events={events}
+                tasks={tasks}
+                renewals={renewals}
+                onNewEvent={() => setShowEventForm(true)}
+                onNewSubscription={() => setShowSubscriptionForm(true)}
+            />
             <EventForm open={showEventForm} onOpenChange={setShowEventForm} />
+            <SubscriptionForm open={showSubscriptionForm} onOpenChange={setShowSubscriptionForm} />
         </>
     );
 }

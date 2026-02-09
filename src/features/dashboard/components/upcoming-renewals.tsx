@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { CalendarClock, RefreshCw } from "lucide-react";
+import { CalendarClock, RefreshCw, User } from "lucide-react";
 
 interface Renewal {
     id: string;
     name: string;
     amount: any;
     renewalDate: Date | null;
-    company: { id: string; name: string };
+    company: { id: string; name: string } | null;
     frequency?: string | null;
 }
 
@@ -54,12 +54,10 @@ export function UpcomingRenewals({ renewals }: UpcomingRenewalsProps) {
                             (1000 * 60 * 60 * 24)
                         );
 
-                        return (
-                            <Link
-                                key={renewal.id}
-                                href={`/company/${renewal.company.id}`}
-                                className="flex items-center justify-between group"
-                            >
+                        const isPersonal = !renewal.company;
+
+                        const content = (
+                            <div className="flex items-center justify-between group">
                                 <div className="flex items-center gap-3">
                                     <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-500/10 text-amber-500 group-hover:bg-amber-500/20 transition-colors">
                                         <RefreshCw className="h-4 w-4" />
@@ -68,8 +66,15 @@ export function UpcomingRenewals({ renewals }: UpcomingRenewalsProps) {
                                         <p className="text-sm font-medium group-hover:text-primary transition-colors">
                                             {renewal.name}
                                         </p>
-                                        <p className="text-xs text-muted-foreground">
-                                            {renewal.company.name}
+                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                            {isPersonal ? (
+                                                <>
+                                                    <User className="h-3 w-3" />
+                                                    Personnel
+                                                </>
+                                            ) : (
+                                                renewal.company!.name
+                                            )}
                                         </p>
                                     </div>
                                 </div>
@@ -79,9 +84,29 @@ export function UpcomingRenewals({ renewals }: UpcomingRenewalsProps) {
                                         variant={daysUntil <= 7 ? "destructive" : "secondary"}
                                         className="text-[10px] px-1.5 h-5"
                                     >
-                                        {daysUntil <= 0 ? "Today" : `${daysUntil} days`}
+                                        {daysUntil <= 0 ? "Aujourd'hui" : `${daysUntil}j`}
                                     </Badge>
                                 </div>
+                            </div>
+                        );
+
+                        if (isPersonal) {
+                            return (
+                                <Link
+                                    key={renewal.id}
+                                    href="/calendar"
+                                >
+                                    {content}
+                                </Link>
+                            );
+                        }
+
+                        return (
+                            <Link
+                                key={renewal.id}
+                                href={`/company/${renewal.company!.id}`}
+                            >
+                                {content}
                             </Link>
                         );
                     })}
