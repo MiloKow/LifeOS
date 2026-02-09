@@ -222,14 +222,12 @@ export async function getUpcomingRenewals(days: number = 30, filter: "all" | "co
     futureDate.setDate(futureDate.getDate() + days);
 
     try {
-        const renewals = await db.expense.findMany({
+        // Fetch all active subscriptions with a renewal date
+        const subscriptions = await db.expense.findMany({
             where: {
                 userId: session.user.id,
                 type: "SUBSCRIPTION",
-                renewalDate: {
-                    gte: now,
-                    lte: futureDate,
-                },
+                renewalDate: { not: null },
                 ...(filter === "company" ? { companyId: { not: null } } : {}),
                 ...(filter === "personal" ? { companyId: null } : {}),
             },
@@ -238,8 +236,31 @@ export async function getUpcomingRenewals(days: number = 30, filter: "all" | "co
                     select: { id: true, name: true },
                 },
             },
-            orderBy: { renewalDate: "asc" },
         });
+
+        // Calculate the next renewal date for each subscription
+        const renewals = subscriptions
+            .map((sub) => {
+                let nextRenewal = new Date(sub.renewalDate!);
+
+                // Advance past renewal dates to the next occurrence
+                while (nextRenewal < now) {
+                    if (sub.frequency === "MONTHLY") {
+                        nextRenewal.setMonth(nextRenewal.getMonth() + 1);
+                    } else if (sub.frequency === "YEARLY") {
+                        nextRenewal.setFullYear(nextRenewal.getFullYear() + 1);
+                    } else {
+                        break; // No frequency, skip
+                    }
+                }
+
+                return {
+                    ...sub,
+                    renewalDate: nextRenewal,
+                };
+            })
+            .filter((sub) => sub.renewalDate >= now && sub.renewalDate <= futureDate)
+            .sort((a, b) => a.renewalDate.getTime() - b.renewalDate.getTime());
 
         return renewals;
     } catch (error) {
