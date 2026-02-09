@@ -74,6 +74,17 @@ enum SubscriptionFrequency {
   YEARLY
 }
 
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+  TASK_ASSIGNED
+  TASK_DUE
+  PROJECT_INVITE
+  MENTION
+}
+
 // ===================
 // AUTH MODELS
 // ===================
@@ -100,6 +111,7 @@ model User {
   companies    Company[]
   timeEntries  TimeEntry[]
   transactions Transaction[]
+  notifications Notification[]
 }
 
 model Account {
@@ -486,4 +498,22 @@ model Expense {
   @@index([companyId])
   @@index([renewalDate])
   @@index([type])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  type      NotificationType
+  title     String
+  message   String?
+  read      Boolean          @default(false)
+  link      String?          // Optional link to redirect user
+
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([userId])
+  @@index([read])
 }
