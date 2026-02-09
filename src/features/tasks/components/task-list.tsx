@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import confetti from "canvas-confetti";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,10 +48,29 @@ const contextColors = {
     COMPANY: "bg-amber-500/10 text-amber-500",
 };
 
+
 export function TaskList({ tasks }: TaskListProps) {
     const [editTask, setEditTask] = useState<Task | null>(null);
 
     async function handleToggle(taskId: string) {
+        const task = tasks.find((t) => t.id === taskId);
+        if (task && task.status !== "DONE") {
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+            const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+
+            const particleCount = 50;
+            // since particles fall down, start a bit higher than random
+            confetti({
+                origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+                ...defaults,
+                particleCount,
+            });
+            confetti({
+                origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+                ...defaults,
+                particleCount,
+            });
+        }
         await toggleTaskStatus(taskId);
     }
 
