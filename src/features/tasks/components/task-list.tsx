@@ -79,102 +79,108 @@ export function TaskList({ tasks }: TaskListProps) {
                     <div
                         key={task.id}
                         className={cn(
-                            "flex items-center gap-4 rounded-lg border border-border/50 bg-card/50 p-4 transition-all hover:bg-muted/50",
+                            "flex items-start gap-4 rounded-lg border border-border/50 bg-card/50 p-4 transition-all hover:bg-muted/50",
                             task.status === "DONE" && "opacity-60"
                         )}
                     >
                         <Checkbox
                             checked={task.status === "DONE"}
                             onCheckedChange={() => handleToggle(task.id)}
-                            className="h-5 w-5 rounded-full"
+                            className="h-5 w-5 rounded-full mt-1 sm:mt-0"
                         />
 
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                                <p
-                                    className={cn(
-                                        "font-medium truncate",
-                                        task.status === "DONE" && "line-through text-muted-foreground"
+                        <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <p
+                                        className={cn(
+                                            "font-medium truncate",
+                                            task.status === "DONE" && "line-through text-muted-foreground"
+                                        )}
+                                    >
+                                        {task.title}
+                                    </p>
+                                    {task.project && (
+                                        <span
+                                            className="text-xs px-2 py-0.5 rounded flex-shrink-0"
+                                            style={{
+                                                backgroundColor: `${task.project.color || '#6366f1'}20`,
+                                                color: task.project.color || '#6366f1',
+                                            }}
+                                        >
+                                            {task.project.name}
+                                        </span>
                                     )}
-                                >
-                                    {task.title}
-                                </p>
-                                {task.project && (
-                                    <span
-                                        className="text-xs px-2 py-0.5 rounded"
-                                        style={{
-                                            backgroundColor: `${task.project.color || '#6366f1'}20`,
-                                            color: task.project.color || '#6366f1',
-                                        }}
-                                    >
-                                        {task.project.name}
-                                    </span>
+                                </div>
+
+                                {task.description && (
+                                    <p className="text-sm text-muted-foreground truncate mt-0.5">
+                                        {task.description}
+                                    </p>
                                 )}
-                            </div>
 
-                            {task.description && (
-                                <p className="text-sm text-muted-foreground truncate mt-0.5">
-                                    {task.description}
-                                </p>
-                            )}
-
-                            <div className="flex items-center gap-2 mt-2">
                                 {task.dueDate && (
-                                    <span className="text-xs text-muted-foreground flex items-center gap-1">
-                                        <Clock className="h-3 w-3" />
-                                        {format(new Date(task.dueDate), "MMM d, yyyy")}
-                                    </span>
+                                    <div className="flex items-center gap-2 mt-1.5">
+                                        <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                            <Clock className="h-3 w-3" />
+                                            {format(new Date(task.dueDate), "MMM d, yyyy")}
+                                        </span>
+                                    </div>
                                 )}
                             </div>
-                        </div>
 
-                        <div className="flex items-center gap-2">
-                            <Badge
-                                variant="outline"
-                                className={cn("text-xs", priorityColors[task.priority])}
-                            >
-                                {task.priority}
-                            </Badge>
-                            <Badge
-                                variant="outline"
-                                className={cn("text-xs", contextColors[task.context])}
-                            >
-                                {task.context}
-                            </Badge>
-                            <Badge className={cn("text-xs", statusColors[task.status])}>
-                                {task.status.replace("_", " ")}
-                            </Badge>
-
-                            {task.project && (
-                                <TaskNoteButton
-                                    taskId={task.id}
-                                    projectId={task.project.id}
-                                    taskTitle={task.title}
-                                    projectName={task.project.name}
-                                />
-                            )}
-
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                                        <MoreHorizontal className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => setEditTask(task)}>
-                                        <Pencil className="mr-2 h-4 w-4" />
-                                        Edit
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        className="text-destructive focus:text-destructive"
-                                        onClick={() => handleDelete(task.id)}
+                            <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto min-w-0">
+                                <div className="flex items-center gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex-1 sm:flex-initial">
+                                    <Badge
+                                        variant="outline"
+                                        className={cn("text-xs whitespace-nowrap", priorityColors[task.priority])}
                                     >
-                                        <Trash2 className="mr-2 h-4 w-4" />
-                                        Delete
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                        {task.priority}
+                                    </Badge>
+                                    <Badge
+                                        variant="outline"
+                                        className={cn("text-xs whitespace-nowrap", contextColors[task.context])}
+                                    >
+                                        {task.context}
+                                    </Badge>
+                                    <Badge className={cn("text-xs whitespace-nowrap", statusColors[task.status])}>
+                                        {task.status.replace("_", " ")}
+                                    </Badge>
+                                </div>
+
+                                <div className="flex items-center gap-1 flex-shrink-0">
+                                    {task.project && (
+                                        <TaskNoteButton
+                                            taskId={task.id}
+                                            projectId={task.project.id}
+                                            taskTitle={task.title}
+                                            projectName={task.project.name}
+                                        />
+                                    )}
+
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => setEditTask(task)}>
+                                                <Pencil className="mr-2 h-4 w-4" />
+                                                Edit
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                                className="text-destructive focus:text-destructive"
+                                                onClick={() => handleDelete(task.id)}
+                                            >
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Delete
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 ))}

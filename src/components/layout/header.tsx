@@ -16,6 +16,7 @@ import { Moon, Sun, Search, Bell, LogOut, User, Settings } from "lucide-react";
 import { logout } from "@/features/auth/actions/auth-actions";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
+import { MobileSidebar } from "@/components/layout/mobile-sidebar";
 
 export function Header() {
     const { theme, setTheme } = useTheme();
@@ -28,7 +29,11 @@ export function Header() {
         .toUpperCase() || "U";
 
     return (
-        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border/50 bg-background/80 px-6 backdrop-blur-sm">
+        <header className="sticky top-0 z-40 flex h-16 items-center justify-between border-b border-border/50 bg-background/80 px-4 md:px-6 backdrop-blur-sm">
+            <div className="flex items-center gap-4 md:hidden">
+                <MobileSidebar />
+            </div>
+
             {/* Search */}
             <div className="flex flex-1 items-center gap-4">
                 <div className="relative w-full max-w-md">

@@ -369,7 +369,7 @@ export function CompanyDetailClient({
 
             {/* Tabs */}
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-                <TabsList className="grid w-full grid-cols-5">
+                <TabsList className="w-full justify-start overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                     <TabsTrigger value="overview" className="flex items-center gap-2">
                         <TrendingUp className="h-4 w-4" />
                         Vue d&apos;ensemble

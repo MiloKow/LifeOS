@@ -50,9 +50,9 @@ export function ActiveProjects({ projects }: ActiveProjectsProps) {
                             className="rounded-lg border border-border/50 p-4 transition-all hover:bg-muted/50"
                         >
                             <div className="flex items-start justify-between">
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
                                     <div
-                                        className="flex h-10 w-10 items-center justify-center rounded-lg"
+                                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
                                         style={{ backgroundColor: `${project.color || '#6366f1'}20` }}
                                     >
                                         <FolderKanban
@@ -60,15 +60,15 @@ export function ActiveProjects({ projects }: ActiveProjectsProps) {
                                             style={{ color: project.color || '#6366f1' }}
                                         />
                                     </div>
-                                    <div>
-                                        <Link href={`/projects/${project.id}`} className="font-medium hover:underline">
+                                    <div className="min-w-0 flex-1">
+                                        <Link href={`/projects/${project.id}`} className="block font-medium hover:underline truncate">
                                             {project.name}
                                         </Link>
                                         <div className="flex items-center gap-2 mt-1">
                                             {project.tags.slice(0, 2).map((tag) => (
                                                 <span
                                                     key={tag.id}
-                                                    className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded"
+                                                    className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded whitespace-nowrap"
                                                 >
                                                     {tag.name}
                                                 </span>
@@ -76,7 +76,7 @@ export function ActiveProjects({ projects }: ActiveProjectsProps) {
                                         </div>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 shrink-0 ml-2">
                                     <Badge className={cn("text-xs", statusColors[project.status])}>
                                         {project.status.replace("_", " ")}
                                     </Badge>

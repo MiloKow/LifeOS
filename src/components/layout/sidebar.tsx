@@ -4,51 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
-    LayoutDashboard,
-    CheckSquare,
-    FolderKanban,
-    Calendar,
-    FileText,
-    Building2,
     Settings,
     ChevronLeft,
     ChevronRight,
 } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-
-const navItems = [
-    {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-    },
-    {
-        title: "Tasks",
-        href: "/tasks",
-        icon: CheckSquare,
-    },
-    {
-        title: "Projects",
-        href: "/projects",
-        icon: FolderKanban,
-    },
-    {
-        title: "Calendar",
-        href: "/calendar",
-        icon: Calendar,
-    },
-    {
-        title: "Notes",
-        href: "/notes",
-        icon: FileText,
-    },
-    {
-        title: "Company",
-        href: "/company",
-        icon: Building2,
-    },
-];
+import { navItems } from "@/components/layout/nav-data";
 
 export function Sidebar() {
     const pathname = usePathname();
@@ -57,7 +19,7 @@ export function Sidebar() {
     return (
         <aside
             className={cn(
-                "flex h-screen flex-col border-r border-border/50 bg-card/30 backdrop-blur-sm transition-all duration-300",
+                "hidden h-screen flex-col border-r border-border/50 bg-card/30 backdrop-blur-sm transition-all duration-300 md:flex",
                 collapsed ? "w-16" : "w-64"
             )}
         >
