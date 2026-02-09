@@ -228,7 +228,8 @@ export async function getUpcomingRenewals(days: number = 30, filter: "all" | "co
                 userId: session.user.id,
                 type: "SUBSCRIPTION",
                 renewalDate: { not: null },
-                ...(filter === "company" ? { companyId: { not: null } } : {}),
+                // Filter by company association
+                ...(filter === "company" ? { NOT: { companyId: null } } : {}),
                 ...(filter === "personal" ? { companyId: null } : {}),
             },
             include: {
@@ -237,6 +238,10 @@ export async function getUpcomingRenewals(days: number = 30, filter: "all" | "co
                 },
             },
         });
+
+        console.log(`[getUpcomingRenewals] filter=${filter}, found ${subscriptions.length} subscriptions:`,
+            subscriptions.map(s => ({ id: s.id, name: s.name, companyId: s.companyId, renewalDate: s.renewalDate }))
+        );
 
         // Calculate the next renewal date for each subscription
         const renewals = subscriptions
@@ -261,6 +266,8 @@ export async function getUpcomingRenewals(days: number = 30, filter: "all" | "co
             })
             .filter((sub) => sub.renewalDate >= now && sub.renewalDate <= futureDate)
             .sort((a, b) => a.renewalDate.getTime() - b.renewalDate.getTime());
+
+        console.log(`[getUpcomingRenewals] after date filter: ${renewals.length} renewals`);
 
         return renewals;
     } catch (error) {
