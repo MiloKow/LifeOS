@@ -61,7 +61,9 @@ export function ActiveProjects({ projects }: ActiveProjectsProps) {
                                         />
                                     </div>
                                     <div>
-                                        <p className="font-medium">{project.name}</p>
+                                        <Link href={`/projects/${project.id}`} className="font-medium hover:underline">
+                                            {project.name}
+                                        </Link>
                                         <div className="flex items-center gap-2 mt-1">
                                             {project.tags.slice(0, 2).map((tag) => (
                                                 <span

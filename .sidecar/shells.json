@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "shells": [
+    {
+      "tmuxName": "sidecar-sh-vie_perso-1",
+      "displayName": "Test",
+      "createdAt": "2026-02-09T02:14:07.859953494+01:00",
+      "agentType": "gemini",
+      "skipPerms": true
+    }
+  ]
+}
