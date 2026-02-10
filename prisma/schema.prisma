@@ -317,6 +317,10 @@ model NoteFolder {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  parentId String?
+  parent   NoteFolder?  @relation("FolderTree", fields: [parentId], references: [id], onDelete: SetNull)
+  children NoteFolder[] @relation("FolderTree")
+
   notes Note[]
   files NoteFile[]
 
@@ -324,6 +328,7 @@ model NoteFolder {
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([parentId])
 }
 
 model NoteFile {

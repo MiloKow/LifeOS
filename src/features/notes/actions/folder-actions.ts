@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 
-export async function createFolder(name: string) {
+export async function createFolder(name: string, parentId?: string | null) {
     const session = await auth();
     if (!session?.user?.id) {
         return { error: "Unauthorized" };
@@ -15,6 +15,7 @@ export async function createFolder(name: string) {
             data: {
                 name,
                 userId: session.user.id,
+                parentId: parentId || null,
             },
         });
 
@@ -59,6 +60,23 @@ export async function deleteFolder(folderId: string) {
             data: { folderId: null },
         });
 
+        // Unlink all files from this folder
+        await db.noteFile.updateMany({
+            where: { folderId, userId: session.user.id },
+            data: { folderId: null },
+        });
+
+        // Move child folders to the parent of the deleted folder (or root)
+        const folder = await db.noteFolder.findUnique({
+            where: { id: folderId, userId: session.user.id },
+            select: { parentId: true },
+        });
+
+        await db.noteFolder.updateMany({
+            where: { parentId: folderId, userId: session.user.id },
+            data: { parentId: folder?.parentId || null },
+        });
+
         // Then delete the folder
         await db.noteFolder.delete({
             where: { id: folderId, userId: session.user.id },
@@ -86,6 +104,7 @@ export async function getFolders() {
                 _count: {
                     select: {
                         files: true,
+                        children: true,
                     },
                 },
             },
@@ -114,7 +133,8 @@ export async function getFolders() {
                 ...folder,
                 _count: {
                     files: folder._count.files,
-                    notes: noteCount
+                    notes: noteCount,
+                    children: folder._count.children,
                 }
             };
         });
@@ -141,5 +161,40 @@ export async function moveNoteToFolder(noteId: string, folderId: string | null) 
     } catch (error) {
         console.error("Failed to move note:", error);
         return { error: "Failed to move note" };
+    }
+}
+
+export async function moveFolderToFolder(folderId: string, parentId: string | null) {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { error: "Unauthorized" };
+    }
+
+    try {
+        // Prevent circular references: make sure parentId is not a descendant of folderId
+        if (parentId) {
+            let currentId: string | null = parentId;
+            while (currentId) {
+                if (currentId === folderId) {
+                    return { error: "Cannot move folder into its own subfolder" };
+                }
+                const ancestor: { parentId: string | null } | null = await db.noteFolder.findUnique({
+                    where: { id: currentId },
+                    select: { parentId: true },
+                });
+                currentId = ancestor?.parentId || null;
+            }
+        }
+
+        await db.noteFolder.update({
+            where: { id: folderId, userId: session.user.id },
+            data: { parentId },
+        });
+
+        revalidatePath("/notes");
+        return { success: true };
+    } catch (error) {
+        console.error("Failed to move folder:", error);
+        return { error: "Failed to move folder" };
     }
 }

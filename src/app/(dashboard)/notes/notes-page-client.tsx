@@ -6,11 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { FileText, Folder, FolderPlus, MoreHorizontal, Plus, Search, Trash2, ImageIcon, File, Upload } from "lucide-react";
+import { FileText, Folder, FolderPlus, MoreHorizontal, Plus, Search, Trash2, ImageIcon, File, Upload, ChevronRight, ChevronDown } from "lucide-react";
 import { NoteEditor } from "@/features/notes/components/note-editor";
 import { FileViewer } from "@/features/notes/components/file-viewer";
 import { deleteNote } from "@/features/notes/actions/note-actions";
-import { createFolder, deleteFolder, renameFolder, moveNoteToFolder } from "@/features/notes/actions/folder-actions";
+import { createFolder, deleteFolder, renameFolder, moveNoteToFolder, moveFolderToFolder } from "@/features/notes/actions/folder-actions";
 import { createNoteFile, deleteNoteFile, moveFileToFolder } from "@/features/notes/actions/file-actions";
 import {
     DropdownMenu,
@@ -35,9 +35,11 @@ type NoteWithRelations = Note & {
 };
 
 type FolderWithCount = NoteFolder & {
+    parentId: string | null;
     _count: {
         notes: number;
         files: number;
+        children: number;
     };
 };
 
@@ -57,6 +59,44 @@ interface NotesPageClientProps {
 function stripHtml(html: string) {
     if (!html) return "";
     return html.replace(/<[^>]*>?/gm, '');
+}
+
+// Recursive folder tree type
+type FolderTreeNode = FolderWithCount & { childFolders: FolderTreeNode[]; totalItems: number };
+
+// Compute recursive total items for a tree node (own items + all descendants' items)
+function computeTotalItems(node: FolderTreeNode): number {
+    const ownItems = node._count.notes + (node._count.files || 0);
+    const childItems = node.childFolders.reduce((sum, child) => sum + computeTotalItems(child), 0);
+    return ownItems + childItems;
+}
+
+// Build tree structure from flat folder list
+function buildFolderTree(folders: FolderWithCount[]): FolderTreeNode[] {
+    const map = new Map<string | null, FolderWithCount[]>();
+
+    folders.forEach((folder) => {
+        const parentId = folder.parentId || null;
+        if (!map.has(parentId)) {
+            map.set(parentId, []);
+        }
+        map.get(parentId)!.push(folder);
+    });
+
+    function getChildren(parentId: string | null): FolderTreeNode[] {
+        const children = map.get(parentId) || [];
+        return children.map((folder) => {
+            const node: FolderTreeNode = {
+                ...folder,
+                childFolders: getChildren(folder.id),
+                totalItems: 0,
+            };
+            node.totalItems = computeTotalItems(node);
+            return node;
+        });
+    }
+
+    return getChildren(null);
 }
 
 export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesPageClientProps) {
@@ -83,6 +123,28 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
     const [folderDialogOpen, setFolderDialogOpen] = useState(false);
     const [editingFolder, setEditingFolder] = useState<FolderWithCount | null>(null);
     const [folderName, setFolderName] = useState("");
+    const [folderParentId, setFolderParentId] = useState<string | null>(null);
+
+    // Expanded folders state
+    const [expandedFolders, setExpandedFolders] = useState<Set<string>>(() => {
+        // Auto-expand folders that contain the initially selected note's folder
+        if (initialNoteId) {
+            const note = notes.find(n => n.id === initialNoteId);
+            if (note?.folderId) {
+                const expanded = new Set<string>();
+                let currentId: string | null = note.folderId;
+                while (currentId) {
+                    const folder = folders.find(f => f.id === currentId);
+                    if (folder?.parentId) {
+                        expanded.add(folder.parentId);
+                    }
+                    currentId = folder?.parentId || null;
+                }
+                return expanded;
+            }
+        }
+        return new Set();
+    });
 
     // Drag and Drop state
     const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
@@ -123,6 +185,18 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
         return dateB.getTime() - dateA.getTime();
     });
 
+    function toggleFolder(folderId: string) {
+        setExpandedFolders((prev) => {
+            const next = new Set(prev);
+            if (next.has(folderId)) {
+                next.delete(folderId);
+            } else {
+                next.add(folderId);
+            }
+            return next;
+        });
+    }
+
     function handleNewNote() {
         setSelectedNote(null);
         setSelectedFile(null);
@@ -134,8 +208,6 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
         setSelectedFile(null);
         setShowEditor(true);
     }
-
-    // ... (keep handleSelectFile, handleDeleteNote, etc.)
 
     function handleSelectFile(file: NoteFile) {
         setSelectedFile(file);
@@ -160,9 +232,10 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
         }
     }
 
-    function openFolderDialog(folder?: FolderWithCount) {
+    function openFolderDialog(folder?: FolderWithCount, parentId?: string | null) {
         setEditingFolder(folder || null);
         setFolderName(folder?.name || "");
+        setFolderParentId(folder ? (folder.parentId || null) : (parentId ?? null));
         setFolderDialogOpen(true);
     }
 
@@ -172,13 +245,14 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
         if (editingFolder) {
             await renameFolder(editingFolder.id, folderName.trim());
         } else {
-            await createFolder(folderName.trim());
+            await createFolder(folderName.trim(), folderParentId);
         }
 
         router.refresh();
         setFolderDialogOpen(false);
         setFolderName("");
         setEditingFolder(null);
+        setFolderParentId(null);
     }
 
     async function handleDeleteFolder(folderId: string) {
@@ -196,6 +270,11 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
 
     async function handleMoveFile(fileId: string, folderId: string | null) {
         await moveFileToFolder(fileId, folderId);
+        router.refresh();
+    }
+
+    async function handleMoveFolder(folderId: string, parentId: string | null) {
+        await moveFolderToFolder(folderId, parentId);
         router.refresh();
     }
 
@@ -245,9 +324,10 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
     }
 
     // Drag and Drop Handlers
-    function handleDragStart(e: React.DragEvent, type: 'note' | 'file', id: string) {
+    function handleDragStart(e: React.DragEvent, type: 'note' | 'file' | 'folder', id: string) {
         e.dataTransfer.setData("application/json", JSON.stringify({ type, id }));
         e.dataTransfer.effectAllowed = "move";
+        e.stopPropagation();
     }
 
     function handleDragOver(e: React.DragEvent, folderId: string | null) {
@@ -258,11 +338,12 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
 
     function handleDragLeave(e: React.DragEvent) {
         e.preventDefault();
-        setDragOverFolderId(null); // This might be too aggressive if entering children, but fine for simple list
+        setDragOverFolderId(null);
     }
 
     async function handleDrop(e: React.DragEvent, targetFolderId: string | null) {
         e.preventDefault();
+        e.stopPropagation();
         setDragOverFolderId(null);
 
         try {
@@ -271,16 +352,124 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
                 await handleMoveNote(data.id, targetFolderId);
             } else if (data.type === 'file') {
                 await handleMoveFile(data.id, targetFolderId);
+            } else if (data.type === 'folder') {
+                // Don't drop a folder into itself
+                if (data.id !== targetFolderId) {
+                    await handleMoveFolder(data.id, targetFolderId);
+                }
             }
         } catch (error) {
             console.error("Drop failed:", error);
         }
     }
 
-    const totalItems = notes.length + files.length;
     // Count uncategorized items for "Notes" badge
     const uncategorizedCount = notes.filter(n => !n.folderId).length + files.filter(f => !f.folderId).length;
 
+    // Build tree
+    const folderTree = buildFolderTree(folders);
+
+    // Get all available folders for the "Move to" menus (flatten the list of all folders)
+    const allFolders = folders;
+
+    // Recursive folder renderer
+    function renderFolderItem(folder: FolderTreeNode, depth: number = 0) {
+        const isExpanded = expandedFolders.has(folder.id);
+        const hasChildren = folder.childFolders.length > 0;
+        const itemCount = folder.totalItems;
+
+        return (
+            <div key={folder.id}>
+                <div
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, 'folder', folder.id)}
+                    className={cn(
+                        "group flex items-center gap-1 w-full rounded-lg px-2 py-2 text-sm transition-colors",
+                        selectedFolderId === folder.id ? "bg-muted" : "hover:bg-muted/50",
+                        dragOverFolderId === folder.id && "bg-muted/80 ring-2 ring-primary/20"
+                    )}
+                    style={{ paddingLeft: `${8 + depth * 16}px` }}
+                    onDragOver={(e) => handleDragOver(e, folder.id)}
+                    onDrop={(e) => handleDrop(e, folder.id)}
+                    onDragEnter={(e) => { e.preventDefault(); setDragOverFolderId(folder.id); }}
+                >
+                    {/* Expand/collapse toggle */}
+                    <button
+                        className="h-5 w-5 flex items-center justify-center flex-shrink-0 rounded hover:bg-muted"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (hasChildren) {
+                                toggleFolder(folder.id);
+                            }
+                        }}
+                    >
+                        {hasChildren ? (
+                            isExpanded ? (
+                                <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                            ) : (
+                                <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                            )
+                        ) : (
+                            <span className="w-3.5" />
+                        )}
+                    </button>
+
+                    <button
+                        className="flex items-center gap-2 flex-1 min-w-0"
+                        onClick={() => {
+                            setSelectedFolderId(folder.id);
+                            // Auto-expand when clicking on a folder that has children
+                            if (hasChildren && !isExpanded) {
+                                toggleFolder(folder.id);
+                            }
+                        }}
+                    >
+                        <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="flex-1 text-left truncate">{folder.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                            {itemCount}
+                        </span>
+                    </button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 opacity-0 group-hover:opacity-100 flex-shrink-0"
+                            >
+                                <MoreHorizontal className="h-3 w-3" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => openFolderDialog(undefined, folder.id)}>
+                                <FolderPlus className="h-4 w-4 mr-2" />
+                                New subfolder
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => openFolderDialog(folder)}>
+                                Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                                className="text-destructive"
+                                onClick={() => handleDeleteFolder(folder.id)}
+                            >
+                                Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </div>
+
+                {/* Render children if expanded */}
+                {isExpanded && hasChildren && (
+                    <div>
+                        {folder.childFolders.map((child) =>
+                            renderFolderItem(child, depth + 1)
+                        )}
+                    </div>
+                )}
+            </div>
+        );
+    }
 
     return (
         <div className="space-y-6">
@@ -310,9 +499,9 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
                 </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[200px_320px_1fr]">
+            <div className="grid gap-6 lg:grid-cols-[220px_320px_1fr]">
                 {/* Folder Sidebar */}
-                <div className="space-y-2">
+                <div className="space-y-1">
                     <div className="flex items-center justify-between mb-3">
                         <h2 className="text-sm font-semibold text-muted-foreground">Folders</h2>
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openFolderDialog()}>
@@ -329,7 +518,6 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
                         onClick={() => setSelectedFolderId(null)}
                         onDragOver={(e) => handleDragOver(e, "root")}
                         onDrop={(e) => handleDrop(e, null)}
-                        // Use a specific ID like "root" for visual state logic, but pass null to handler
                         onDragEnter={(e) => { e.preventDefault(); setDragOverFolderId("root"); }}
                     >
                         <FileText className="h-4 w-4 text-muted-foreground" />
@@ -337,53 +525,7 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
                         <span className="text-xs text-muted-foreground">{uncategorizedCount}</span>
                     </div>
 
-                    {folders.map((folder) => (
-                        <div
-                            key={folder.id}
-                            className={cn(
-                                "group flex items-center gap-2 w-full rounded-lg px-3 py-2 text-sm transition-colors",
-                                selectedFolderId === folder.id ? "bg-muted" : "hover:bg-muted/50",
-                                dragOverFolderId === folder.id && "bg-muted/80 ring-2 ring-primary/20"
-                            )}
-                            onDragOver={(e) => handleDragOver(e, folder.id)}
-                            onDrop={(e) => handleDrop(e, folder.id)}
-                            onDragEnter={(e) => { e.preventDefault(); setDragOverFolderId(folder.id); }}
-                        >
-                            <button
-                                className="flex items-center gap-2 flex-1"
-                                onClick={() => setSelectedFolderId(folder.id)}
-                            >
-                                <Folder className="h-4 w-4 text-muted-foreground" />
-                                <span className="flex-1 text-left truncate">{folder.name}</span>
-                                <span className="text-xs text-muted-foreground">
-                                    {folder._count.notes + (folder._count.files || 0)}
-                                </span>
-                            </button>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                                    >
-                                        <MoreHorizontal className="h-3 w-3" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => openFolderDialog(folder)}>
-                                        Rename
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem
-                                        className="text-destructive"
-                                        onClick={() => handleDeleteFolder(folder.id)}
-                                    >
-                                        Delete
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        </div>
-                    ))}
+                    {folderTree.map((folder) => renderFolderItem(folder))}
                 </div>
 
                 {/* Notes & Files List */}
@@ -451,7 +593,7 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
                                                         <DropdownMenuItem onClick={() => handleMoveNote(note.id, null)}>
                                                             Remove from folder
                                                         </DropdownMenuItem>
-                                                        {folders.map((folder) => (
+                                                        {allFolders.map((folder) => (
                                                             <DropdownMenuItem
                                                                 key={folder.id}
                                                                 onClick={() => handleMoveNote(note.id, folder.id)}
@@ -520,7 +662,7 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
                                                         <DropdownMenuItem onClick={() => handleMoveFile(file.id, null)}>
                                                             Remove from folder
                                                         </DropdownMenuItem>
-                                                        {folders.map((folder) => (
+                                                        {allFolders.map((folder) => (
                                                             <DropdownMenuItem
                                                                 key={folder.id}
                                                                 onClick={() => handleMoveFile(file.id, folder.id)}
@@ -581,7 +723,14 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
             <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{editingFolder ? "Rename Folder" : "Create Folder"}</DialogTitle>
+                        <DialogTitle>
+                            {editingFolder
+                                ? "Rename Folder"
+                                : folderParentId
+                                    ? `Create Subfolder in "${folders.find(f => f.id === folderParentId)?.name || ""}"`
+                                    : "Create Folder"
+                            }
+                        </DialogTitle>
                     </DialogHeader>
                     <div className="py-4">
                         <div className="space-y-2">
@@ -591,6 +740,11 @@ export function NotesPageClient({ notes, folders, files, initialNoteId }: NotesP
                                 value={folderName}
                                 onChange={(e) => setFolderName(e.target.value)}
                                 placeholder="Enter folder name"
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter" && folderName.trim()) {
+                                        handleSaveFolder();
+                                    }
+                                }}
                             />
                         </div>
                     </div>
