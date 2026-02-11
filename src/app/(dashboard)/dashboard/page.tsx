@@ -72,7 +72,7 @@ export default async function DashboardPage() {
                 <StatCard
                     title="Today's Tasks"
                     value={String(todayTasks.length)}
-                    description={`${completedTodayTasks} completed`}
+                    description={` `}
                     trend={completedTodayTasks > 0 ? "Keep it up!" : undefined}
                 />
                 <StatCard

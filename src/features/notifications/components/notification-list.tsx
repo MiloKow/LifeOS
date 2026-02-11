@@ -10,7 +10,7 @@ import { NotificationItem } from "./notification-item";
 
 export function NotificationList() {
     const { notifications, setNotifications, markAllAsRead, unreadCount } = useNotificationStore();
-    const [isLoading, setIsLoading] = useState(true);
+    const [isLoading, setIsLoading] = useState(notifications.length === 0);
 
     useEffect(() => {
         const fetchNotifications = async () => {

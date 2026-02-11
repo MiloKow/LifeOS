@@ -81,6 +81,7 @@ enum NotificationType {
   ERROR
   TASK_ASSIGNED
   TASK_DUE
+  EVENT_REMINDER
   PROJECT_INVITE
   MENTION
 }

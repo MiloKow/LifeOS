@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { Notification, markNotificationAsRead } from "@/features/notifications/actions/notification-actions";
 import { useNotificationStore } from "@/stores/notification-store";
 import { formatDistanceToNow } from "date-fns";
-import { Bell, Check, Info, AlertTriangle, XCircle, FileText, CheckCircle2 } from "lucide-react";
+import { Bell, Check, Info, AlertTriangle, XCircle, FileText, CheckCircle2, CalendarClock } from "lucide-react";
 import Link from "next/link";
 import { NotificationType } from "@prisma/client";
 
@@ -26,7 +26,9 @@ const getIcon = (type: NotificationType) => {
             return <XCircle className="h-4 w-4 text-red-500" />;
         case "TASK_ASSIGNED":
         case "TASK_DUE":
-            return <FileText className="h-4 w-4 text-primary" />;
+            return <FileText className="h-4 w-4 text-orange-500" />;
+        case "EVENT_REMINDER":
+            return <CalendarClock className="h-4 w-4 text-violet-500" />;
         default:
             return <Bell className="h-4 w-4 text-gray-500" />;
     }
@@ -68,7 +70,7 @@ export function NotificationItem({ notification }: NotificationItemProps) {
                 </p>
                 {notification.message && (
                     <p className="text-xs text-muted-foreground line-clamp-2">
-                        {notification.message}
+                        {notification.message.replace(/\[[\w]+\]\s?/, '')}
                     </p>
                 )}
                 <p className="text-[10px] text-muted-foreground">
