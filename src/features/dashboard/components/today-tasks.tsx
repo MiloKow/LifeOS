@@ -6,6 +6,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { Circle, Clock, FileText } from "lucide-react";
 import { format } from "date-fns";
+import confetti from "canvas-confetti";
+import { toggleTaskStatus } from "@/features/tasks/actions/task-actions";
 import type { Task, Project, Priority } from "@prisma/client";
 
 type TaskWithProject = Task & {
@@ -25,6 +27,26 @@ const priorityColors: Record<Priority, string> = {
 
 export function TodayTasks({ tasks }: TodayTasksProps) {
     const remainingTasks = tasks.filter(t => t.status !== "DONE").length;
+
+    async function handleToggle(taskId: string) {
+        const task = tasks.find((t) => t.id === taskId);
+        if (task && task.status !== "DONE") {
+            const defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 0 };
+            const randomInRange = (min: number, max: number) => Math.random() * (max - min) + min;
+            const particleCount = 50;
+            confetti({
+                origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 },
+                ...defaults,
+                particleCount,
+            });
+            confetti({
+                origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
+                ...defaults,
+                particleCount,
+            });
+        }
+        await toggleTaskStatus(taskId);
+    }
 
     return (
         <Card className="border-border/50 bg-card/50 backdrop-blur-sm">
@@ -51,6 +73,7 @@ export function TodayTasks({ tasks }: TodayTasksProps) {
                         >
                             <Checkbox
                                 checked={task.status === "DONE"}
+                                onCheckedChange={() => handleToggle(task.id)}
                                 className="h-5 w-5 rounded-full"
                             />
                             <div className="flex-1 min-w-0">
