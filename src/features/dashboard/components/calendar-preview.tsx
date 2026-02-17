@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { format, addDays, isSameDay, startOfWeek } from "date-fns";
+import { format, addDays, isSameDay, startOfWeek, startOfDay, endOfDay } from "date-fns";
 import { Calendar as CalendarIcon, Building2, FolderKanban } from "lucide-react";
 import type { Event, Task, Project, Company } from "@prisma/client";
 
@@ -33,7 +33,13 @@ export function CalendarPreview({ events }: CalendarPreviewProps) {
 
     const [selectedDay, setSelectedDay] = useState<Date>(today);
 
-    const selectedDayEvents = events.filter((e) => isSameDay(new Date(e.startTime), selectedDay));
+    const selectedDayStart = startOfDay(selectedDay);
+    const selectedDayEnd = endOfDay(selectedDay);
+    const selectedDayEvents = events.filter((e) => {
+        const start = new Date(e.startTime);
+        const end = new Date(e.endTime);
+        return start <= selectedDayEnd && end >= selectedDayStart;
+    });
     const isSelectedToday = isSameDay(selectedDay, today);
 
     return (
@@ -50,7 +56,13 @@ export function CalendarPreview({ events }: CalendarPreviewProps) {
                     {weekDays.map((day) => {
                         const isToday = isSameDay(day, today);
                         const isSelected = isSameDay(day, selectedDay);
-                        const dayEvents = events.filter((e) => isSameDay(new Date(e.startTime), day));
+                        const dStart = startOfDay(day);
+                        const dEnd = endOfDay(day);
+                        const dayEvents = events.filter((e) => {
+                            const s = new Date(e.startTime);
+                            const en = new Date(e.endTime);
+                            return s <= dEnd && en >= dStart;
+                        });
 
                         return (
                             <button

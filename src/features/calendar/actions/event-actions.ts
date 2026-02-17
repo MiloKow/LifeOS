@@ -119,10 +119,12 @@ export async function getEvents(options?: {
     };
 
     if (options?.startDate && options?.endDate) {
-        where.startTime = {
-            gte: options.startDate,
-            lte: options.endDate,
-        };
+        // Include events that overlap with the date range
+        // An event overlaps if it starts before the range ends AND ends after the range starts
+        where.AND = [
+            { startTime: { lte: options.endDate } },
+            { endTime: { gte: options.startDate } },
+        ];
     }
 
     if (options?.projectId) {

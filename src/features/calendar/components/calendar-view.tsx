@@ -96,9 +96,14 @@ export function CalendarView({ events, tasks = [], renewals = [], onNewEvent, on
     const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekViewStart, i));
 
     function getEventsForDay(day: Date) {
-        return events.filter((event) =>
-            isSameDay(new Date(event.startTime), day)
-        );
+        const dayStart = startOfDay(day);
+        const dayEndTime = endOfDay(day);
+        return events.filter((event) => {
+            const eventStart = new Date(event.startTime);
+            const eventEnd = new Date(event.endTime);
+            // Event overlaps with this day if it starts before day ends AND ends after day starts
+            return eventStart <= dayEndTime && eventEnd >= dayStart;
+        });
     }
 
     function getTasksForDay(day: Date) {
@@ -339,10 +344,15 @@ function MonthView({ days, currentDate, getEventsForDay, getTasksForDay, getRene
                                         const style = getEventStyle(event);
                                         const label = getEventLabel(event);
                                         const hasCustomColor = !!style.color && !style.bg;
+                                        const eventStart = new Date(event.startTime);
+                                        const eventEnd = new Date(event.endTime);
+                                        const isMultiDay = !isSameDay(eventStart, eventEnd);
+                                        const isStartDay = isSameDay(eventStart, day);
+                                        const isEndDay = isSameDay(eventEnd, day);
 
                                         return (
                                             <div
-                                                key={`event-${event.id}`}
+                                                key={`event-${event.id}-${day.toISOString()}`}
                                                 className={cn(
                                                     "group truncate rounded px-1.5 py-0.5 text-xs font-medium flex items-center gap-1 cursor-pointer hover:ring-1 hover:ring-white/30 transition-all",
                                                     !hasCustomColor && style.bg,
@@ -359,7 +369,15 @@ function MonthView({ days, currentDate, getEventsForDay, getTasksForDay, getRene
                                                 <span className="truncate flex-1">
                                                     {!event.allDay && (
                                                         <span className="mr-1">
-                                                            {format(new Date(event.startTime), "HH:mm")}
+                                                            {isMultiDay ? (
+                                                                isStartDay
+                                                                    ? `${format(eventStart, "HH:mm")} →`
+                                                                    : isEndDay
+                                                                        ? `→ ${format(eventEnd, "HH:mm")}`
+                                                                        : "→ →"
+                                                            ) : (
+                                                                format(eventStart, "HH:mm")
+                                                            )}
                                                         </span>
                                                     )}
                                                     {event.title}
@@ -605,12 +623,36 @@ function WeekView({ weekDays, getEventsForDay, getTasksForDay, getRenewalsForDay
                                 {dayEvents.map((event) => {
                                     const eventStart = new Date(event.startTime);
                                     const eventEnd = new Date(event.endTime);
+                                    const isMultiDay = !isSameDay(eventStart, eventEnd);
+                                    const isStartDay = isSameDay(eventStart, day);
+                                    const isEndDay = isSameDay(eventEnd, day);
 
-                                    const startHour = eventStart.getHours() + eventStart.getMinutes() / 60;
-                                    const endHour = eventEnd.getHours() + eventEnd.getMinutes() / 60;
+                                    // Determine effective start/end hours for THIS day
+                                    let effectiveStartHour: number;
+                                    let effectiveEndHour: number;
 
-                                    const clampedStart = Math.max(startHour, WEEK_VIEW_START_HOUR);
-                                    const clampedEnd = Math.min(endHour, WEEK_VIEW_END_HOUR);
+                                    if (!isMultiDay) {
+                                        // Single-day event: use actual times
+                                        effectiveStartHour = eventStart.getHours() + eventStart.getMinutes() / 60;
+                                        effectiveEndHour = eventEnd.getHours() + eventEnd.getMinutes() / 60;
+                                    } else if (isStartDay) {
+                                        // First day of multi-day: from start time to end of day
+                                        effectiveStartHour = eventStart.getHours() + eventStart.getMinutes() / 60;
+                                        effectiveEndHour = WEEK_VIEW_END_HOUR;
+                                    } else if (isEndDay) {
+                                        // Last day of multi-day: from start of day to end time
+                                        effectiveStartHour = WEEK_VIEW_START_HOUR;
+                                        effectiveEndHour = eventEnd.getHours() + eventEnd.getMinutes() / 60;
+                                        // If event ends at 00:00 (midnight), show nothing on end day
+                                        if (effectiveEndHour === 0) return null;
+                                    } else {
+                                        // Middle day of multi-day: full day
+                                        effectiveStartHour = WEEK_VIEW_START_HOUR;
+                                        effectiveEndHour = WEEK_VIEW_END_HOUR;
+                                    }
+
+                                    const clampedStart = Math.max(effectiveStartHour, WEEK_VIEW_START_HOUR);
+                                    const clampedEnd = Math.min(effectiveEndHour, WEEK_VIEW_END_HOUR);
 
                                     if (clampedEnd <= clampedStart) return null;
 
@@ -619,10 +661,23 @@ function WeekView({ weekDays, getEventsForDay, getTasksForDay, getRenewalsForDay
                                     const color = getEventColor(event);
                                     const label = getEventLabel(event);
 
+                                    // Time display for multi-day
+                                    const timeDisplay = isMultiDay
+                                        ? isStartDay
+                                            ? `${format(eventStart, "HH:mm")} → ...`
+                                            : isEndDay
+                                                ? `... → ${format(eventEnd, "HH:mm")}`
+                                                : "Toute la journée"
+                                        : `${format(eventStart, "HH:mm")} - ${format(eventEnd, "HH:mm")}`;
+
                                     return (
                                         <div
-                                            key={event.id}
-                                            className="absolute left-0.5 right-0.5 z-10 rounded-md overflow-hidden cursor-pointer group/event transition-all hover:ring-2 hover:ring-white/20 hover:shadow-lg"
+                                            key={`${event.id}-${day.toISOString()}`}
+                                            className={cn(
+                                                "absolute left-0.5 right-0.5 z-10 overflow-hidden cursor-pointer group/event transition-all hover:ring-2 hover:ring-white/20 hover:shadow-lg",
+                                                isMultiDay && !isStartDay ? "rounded-t-none" : "rounded-t-md",
+                                                isMultiDay && !isEndDay ? "rounded-b-none" : "rounded-b-md",
+                                            )}
                                             style={{
                                                 top: `${top}px`,
                                                 height: `${height}px`,
@@ -630,7 +685,7 @@ function WeekView({ weekDays, getEventsForDay, getTasksForDay, getRenewalsForDay
                                                 borderLeft: `3px solid ${color}`,
                                             }}
                                             onClick={() => onEditEvent?.(event)}
-                                            title={`${event.title}${label ? ` (${label})` : ''}\n${format(eventStart, "HH:mm")} - ${format(eventEnd, "HH:mm")}`}
+                                            title={`${event.title}${label ? ` (${label})` : ''}\n${format(eventStart, "dd/MM HH:mm")} - ${format(eventEnd, "dd/MM HH:mm")}`}
                                         >
                                             <div className="p-1 h-full flex flex-col overflow-hidden">
                                                 <div className="flex items-start justify-between gap-0.5">
@@ -649,7 +704,7 @@ function WeekView({ weekDays, getEventsForDay, getTasksForDay, getRenewalsForDay
                                                     className="text-[10px] opacity-75 leading-tight"
                                                     style={{ color }}
                                                 >
-                                                    {format(eventStart, "HH:mm")} - {format(eventEnd, "HH:mm")}
+                                                    {timeDisplay}
                                                 </span>
                                                 {label && height > 40 && (
                                                     <span
