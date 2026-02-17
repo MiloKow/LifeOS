@@ -23,11 +23,12 @@ import {
 } from "@/components/ui/select";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { CalendarIcon, Clock, Loader2, User, FolderKanban, Building2 } from "lucide-react";
+import { CalendarIcon, Clock, Loader2, User, FolderKanban, Building2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
-import { createEvent, updateEvent, getEventLinkOptions, type EventInput } from "@/features/calendar/actions/event-actions";
+import { createEvent, updateEvent, deleteEvent, getEventLinkOptions, type EventInput } from "@/features/calendar/actions/event-actions";
 import type { Event } from "@prisma/client";
+import { toast } from "sonner";
 
 type LinkType = "personal" | "project" | "company";
 
@@ -43,6 +44,7 @@ interface EventFormProps {
 
 export function EventForm({ open, onOpenChange, event, defaultDate, defaultLinkType, defaultProjectId, defaultCompanyId }: EventFormProps) {
     const [loading, setLoading] = useState(false);
+    const [deleting, setDeleting] = useState(false);
     const [projects, setProjects] = useState<{ id: string; name: string; color: string | null }[]>([]);
     const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
     const [loadingOptions, setLoadingOptions] = useState(false);
@@ -101,6 +103,25 @@ export function EventForm({ open, onOpenChange, event, defaultDate, defaultLinkT
             setSelectedCompanyId("");
         } else if (type === "company") {
             setSelectedProjectId("");
+        }
+    }
+
+    async function handleDelete() {
+        if (!event) return;
+        setDeleting(true);
+        try {
+            const result = await deleteEvent(event.id);
+            if (result.error) {
+                toast.error(result.error);
+            } else {
+                toast.success("Événement supprimé");
+                onOpenChange(false);
+            }
+        } catch (error) {
+            console.error("Failed to delete event:", error);
+            toast.error("Erreur lors de la suppression");
+        } finally {
+            setDeleting(false);
         }
     }
 
@@ -384,22 +405,42 @@ export function EventForm({ open, onOpenChange, event, defaultDate, defaultLinkT
                         )}
                     </div>
 
-                    <DialogFooter>
-                        <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                            Annuler
-                        </Button>
-                        <Button type="submit" disabled={loading}>
-                            {loading ? (
-                                <>
+                    <DialogFooter className="flex !justify-between">
+                        {event ? (
+                            <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                onClick={handleDelete}
+                                disabled={deleting || loading}
+                            >
+                                {deleting ? (
                                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                    Enregistrement...
-                                </>
-                            ) : event ? (
-                                "Modifier"
-                            ) : (
-                                "Créer"
-                            )}
-                        </Button>
+                                ) : (
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                )}
+                                Supprimer
+                            </Button>
+                        ) : (
+                            <div />
+                        )}
+                        <div className="flex items-center gap-2">
+                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                                Annuler
+                            </Button>
+                            <Button type="submit" disabled={loading}>
+                                {loading ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Enregistrement...
+                                    </>
+                                ) : event ? (
+                                    "Modifier"
+                                ) : (
+                                    "Créer"
+                                )}
+                            </Button>
+                        </div>
                     </DialogFooter>
                 </form>
             </DialogContent>

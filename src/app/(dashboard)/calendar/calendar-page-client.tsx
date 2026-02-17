@@ -33,6 +33,24 @@ interface CalendarPageClientProps {
 export function CalendarPageClient({ events, tasks, renewals }: CalendarPageClientProps) {
     const [showEventForm, setShowEventForm] = useState(false);
     const [showSubscriptionForm, setShowSubscriptionForm] = useState(false);
+    const [editingEvent, setEditingEvent] = useState<EventWithRelations | null>(null);
+
+    function handleNewEvent() {
+        setEditingEvent(null);
+        setShowEventForm(true);
+    }
+
+    function handleEditEvent(event: EventWithRelations) {
+        setEditingEvent(event);
+        setShowEventForm(true);
+    }
+
+    function handleEventFormChange(open: boolean) {
+        setShowEventForm(open);
+        if (!open) {
+            setEditingEvent(null);
+        }
+    }
 
     return (
         <>
@@ -40,10 +58,16 @@ export function CalendarPageClient({ events, tasks, renewals }: CalendarPageClie
                 events={events}
                 tasks={tasks}
                 renewals={renewals}
-                onNewEvent={() => setShowEventForm(true)}
+                onNewEvent={handleNewEvent}
                 onNewSubscription={() => setShowSubscriptionForm(true)}
+                onEditEvent={handleEditEvent}
             />
-            <EventForm open={showEventForm} onOpenChange={setShowEventForm} />
+            <EventForm
+                key={editingEvent?.id || "new"}
+                open={showEventForm}
+                onOpenChange={handleEventFormChange}
+                event={editingEvent || undefined}
+            />
             <SubscriptionForm open={showSubscriptionForm} onOpenChange={setShowSubscriptionForm} />
         </>
     );
